@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: "",
+  baseURL: "/_/backend",
   withCredentials: true,
 });
 

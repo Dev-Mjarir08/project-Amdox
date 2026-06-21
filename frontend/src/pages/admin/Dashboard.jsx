@@ -55,7 +55,7 @@ export default function AdminDashboard() {
 
   // Format Project Chart Data
   const projectChartData = projects.map((p) => ({
-    name: p.name.split(" ")[0], // abbreviation
+    name: p.name ? p.name.split(" ")[0] : "Project", // abbreviation
     progress: p.progress,
   }));
 
@@ -75,12 +75,12 @@ export default function AdminDashboard() {
 
   // Format Recent Tasks Data
   const recentTasksData = tasks.slice(0, 5).map((t) => ({
-    id: t.id.substring(t.id.length - 8).toUpperCase(), // format ID nicely
+    id: t.id ? t.id.substring(t.id.length - 8).toUpperCase() : "TASK", // format ID nicely
     title: t.title,
     dueDate: t.due_date,
     assignedTo: t.assignee_name,
     priority: "Medium",
-    status: t.status === "in-progress" ? "In Progress" : t.status.charAt(0).toUpperCase() + t.status.slice(1),
+    status: t.status === "in-progress" ? "In Progress" : t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : "Pending",
   }));
 
   // Format Recent Employees Data
@@ -95,7 +95,7 @@ export default function AdminDashboard() {
   // Format Attendance Chart Data by grouping
   // Simple grouping by date for last 6 records
   const attendanceChartData = attendance.slice(0, 6).reverse().map((att) => ({
-    month: att.date.substring(5), // MM-DD
+    month: att.date ? att.date.substring(5) : "", // MM-DD
     present: attendance.filter((a) => a.date === att.date && a.status === "present").length * 150 + 800, // scaled for chart look
     remote: attendance.filter((a) => a.date === att.date && a.status === "remote").length * 80 + 150,
   }));

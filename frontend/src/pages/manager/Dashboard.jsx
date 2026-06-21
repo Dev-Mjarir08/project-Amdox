@@ -56,7 +56,7 @@ export default function ManagerDashboard() {
 
   // Format Project Chart
   const projectChartData = projects.map((p) => ({
-    name: p.name.split(" ")[0],
+    name: p.name ? p.name.split(" ")[0] : "Project",
     progress: p.progress,
   }));
 
@@ -76,12 +76,12 @@ export default function ManagerDashboard() {
 
   // Format Recent Tasks
   const recentTasksData = tasks.slice(0, 5).map((t) => ({
-    id: t.id.substring(t.id.length - 8).toUpperCase(),
+    id: t.id ? t.id.substring(t.id.length - 8).toUpperCase() : "TASK",
     title: t.title,
     dueDate: t.due_date,
     assignedTo: t.assignee_name,
     priority: "Medium",
-    status: t.status === "in-progress" ? "In Progress" : t.status.charAt(0).toUpperCase() + t.status.slice(1),
+    status: t.status === "in-progress" ? "In Progress" : t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : "Pending",
   }));
 
   // Format Recent Employees

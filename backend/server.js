@@ -28,6 +28,9 @@ import dashboardRoutes from "./routes/dashboardRoutes.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust Vercel proxy for express-rate-limit
+app.set("trust proxy", 1);
+
 // Connect to Database
 connectDB();
 

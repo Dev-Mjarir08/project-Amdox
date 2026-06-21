@@ -64,6 +64,14 @@ app.use("/api/inventory", inventoryRoutes);
 app.use("/api/payroll", payrollRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
+// Centralized 404 handler (JSON response)
+app.use((req, res, next) => {
+  res.status(404).json({
+    error: "Not Found",
+    message: `Cannot ${req.method} ${req.originalUrl}`
+  });
+});
+
 // Centralized error handling
 app.use(errorHandler);
 

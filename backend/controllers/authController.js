@@ -40,7 +40,8 @@ const login = async (req, res, next) => {
     // Save token as secure HTTP-only cookie
     res.cookie("amdox_token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true,
+      sameSite: "none",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     });
 
@@ -99,7 +100,8 @@ const register = async (req, res, next) => {
 
     res.cookie("amdox_token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true,
+      sameSite: "none",
       maxAge: 24 * 60 * 60 * 1000,
     });
 
@@ -122,7 +124,11 @@ const register = async (req, res, next) => {
 
 // Logout Controller
 const logout = async (req, res, next) => {
-  res.clearCookie("amdox_token");
+  res.clearCookie("amdox_token", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+  });
   res.json({ message: "Logged out successfully" });
 };
 
@@ -275,7 +281,8 @@ const registerAdmin = async (req, res, next) => {
 
     res.cookie("amdox_token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true,
+      sameSite: "none",
       maxAge: 24 * 60 * 60 * 1000,
     });
 

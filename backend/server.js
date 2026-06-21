@@ -32,7 +32,7 @@ const PORT = process.env.PORT || 5000;
 app.set("trust proxy", 1);
 
 // Connect to Database
-connectDB();
+await connectDB();
 
 // Global Middlewares
 app.use(helmet());

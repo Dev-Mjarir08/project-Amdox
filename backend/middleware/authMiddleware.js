@@ -58,6 +58,26 @@ const isHR = authorizeRoles("admin", "hr");
 const isManager = authorizeRoles("admin", "manager");
 const isEmployee = authorizeRoles("admin", "hr", "manager", "employee");
 
+// Middleware to check access to Admin registration
+const checkAdminRegistrationAccess = async (req, res, next) => {
+  try {
+    const adminExists = await User.findOne({ role: "admin" });
+    if (!adminExists) {
+      // No admin exists, allow registration publicly
+      return next();
+    }
+    // At least one admin exists, require authorization
+    return verifyToken(req, res, () => {
+      if (req.user && req.user.role === "admin") {
+        return next();
+      }
+      return res.status(403).json({ error: "Public registration is disabled. Only logged-in Admins can register new Admins." });
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export {
   verifyToken,
   authorizeRoles,
@@ -65,4 +85,5 @@ export {
   isHR,
   isManager,
   isEmployee,
+  checkAdminRegistrationAccess,
 };

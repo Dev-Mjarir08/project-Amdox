@@ -28,7 +28,7 @@ export const registerUser = createAsyncThunk(
   "auth/register",
   async ({ name, email, password, role }, { rejectWithValue }) => {
     try {
-      const res = await axiosInstance.post("/api/auth/register", { name, email, password, role });
+      const res = await axiosInstance.post("/api/auth/register-admin", { name, email, password, role });
       localStorage.setItem("amdox_token", res.data.token);
       return res.data;
     } catch (err) {

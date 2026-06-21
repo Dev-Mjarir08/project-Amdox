@@ -238,6 +238,66 @@ const changePassword = async (req, res, next) => {
   }
 };
 
+// Register Admin Controller
+const registerAdmin = async (req, res, next) => {
+  try {
+    const { name, email, password, phone } = req.body;
+    
+    // Input Validation
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: "Name, email, and password are required." });
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: "Invalid email format." });
+    }
+    
+    if (password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters long." });
+    }
+
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ error: "User with this email already exists." });
+    }
+
+    const user = new User({
+      name,
+      email,
+      password, // hashed automatically by User pre-save hook
+      role: "admin",
+      phone: phone || "",
+    });
+
+    await user.save();
+    const token = generateToken(user);
+
+    res.cookie("amdox_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Admin created successfully",
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        initials: user.initials,
+        title: "ERP Administrator",
+        department: "General",
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export {
   login,
   register,
@@ -246,4 +306,5 @@ export {
   forgotPassword,
   resetPassword,
   changePassword,
+  registerAdmin,
 };

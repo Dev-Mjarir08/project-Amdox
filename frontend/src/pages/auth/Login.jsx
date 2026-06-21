@@ -6,8 +6,8 @@ import { useAuth } from "../../context/AuthContext.jsx";
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("admin@amdoxerp.com");
-  const [password, setPassword] = useState("enterprise");
+  const [email, setEmail] = useState("admin@amdox.com");
+  const [password, setPassword] = useState("admin123");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 

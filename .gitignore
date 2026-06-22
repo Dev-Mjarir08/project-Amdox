@@ -3,3 +3,6 @@ dist/
 *.log
 .env
 .env.*
+vite-dev.err.log
+vite-dev.log
+vite-dev.out.log

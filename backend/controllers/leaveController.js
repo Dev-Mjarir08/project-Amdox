@@ -171,18 +171,16 @@ const reviewLeave = async (req, res, next) => {
 
     // Send email alert
     if (leave.employee && leave.employee.email) {
-      try {
-        await sendLeaveApprovalEmail(
-          leave.employee.email,
-          leave.leaveType,
-          leave.startDate,
-          leave.endDate,
-          status,
-          req.user.name
-        );
-      } catch (mailErr) {
+      sendLeaveApprovalEmail(
+        leave.employee.email,
+        leave.leaveType,
+        leave.startDate,
+        leave.endDate,
+        status,
+        req.user.name
+      ).catch((mailErr) => {
         console.error("Leave review email failed:", mailErr.message);
-      }
+      });
     }
 
     let departmentName = "General";

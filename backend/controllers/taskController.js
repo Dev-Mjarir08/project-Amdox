@@ -71,16 +71,14 @@ const createTask = async (req, res, next) => {
 
       // Send email alert
       if (populated.assignedTo && populated.assignedTo.email) {
-        try {
-          await sendTaskAssignmentEmail(
-            populated.assignedTo.email,
-            title,
-            due_date || "No Limit",
-            req.user.name
-          );
-        } catch (mailErr) {
+        sendTaskAssignmentEmail(
+          populated.assignedTo.email,
+          title,
+          due_date || "No Limit",
+          req.user.name
+        ).catch((mailErr) => {
           console.error("Task assignment email failed:", mailErr.message);
-        }
+        });
       }
     }
 

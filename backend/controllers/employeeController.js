@@ -112,11 +112,9 @@ const createEmployee = async (req, res, next) => {
     await employee.save();
 
     // 3. Send welcome email asynchronously
-    try {
-      await sendWelcomeEmail(email, name, password);
-    } catch (mailErr) {
+    sendWelcomeEmail(email, name, password).catch((mailErr) => {
       console.error("Welcome email failed to send:", mailErr.message);
-    }
+    });
 
     res.status(201).json({
       id: user._id,

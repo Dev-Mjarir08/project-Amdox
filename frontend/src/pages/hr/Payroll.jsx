@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { FiPlus, FiCreditCard, FiCheck, FiRefreshCw, FiDollarSign } from "react-icons/fi";
 import PageHeader from "../../components/common/PageHeader.jsx";
 import { apiFetch } from "../../utils/api.js";
@@ -11,7 +11,7 @@ export default function Payroll() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const loadPayroll = async () => {
+  const loadPayroll = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiFetch(`/api/payroll?month=${month}`);
@@ -21,13 +21,13 @@ export default function Payroll() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [month]);
 
   useEffect(() => {
     loadPayroll();
-  }, [month]);
+  }, [loadPayroll]);
 
-  const handleGeneratePayroll = async () => {
+  const handleGeneratePayroll = useCallback(async () => {
     try {
       setActionLoading(true);
       setError("");
@@ -43,9 +43,9 @@ export default function Payroll() {
     } finally {
       setActionLoading(false);
     }
-  };
+  }, [month, loadPayroll]);
 
-  const handleUpdateStatus = async (id, status) => {
+  const handleUpdateStatus = useCallback(async (id, status) => {
     try {
       setError("");
       await apiFetch(`/api/payroll/${id}`, {
@@ -58,10 +58,15 @@ export default function Payroll() {
     } catch (err) {
       setError(err.message);
     }
-  };
+  }, [loadPayroll]);
 
-  const totalPayout = payroll.reduce((acc, p) => acc + (p.status === "paid" ? p.total_salary : 0), 0);
-  const pendingPayout = payroll.reduce((acc, p) => acc + (p.status !== "paid" ? p.total_salary : 0), 0);
+  const totalPayout = useMemo(() => {
+    return payroll.reduce((acc, p) => acc + (p.status === "paid" ? p.total_salary : 0), 0);
+  }, [payroll]);
+
+  const pendingPayout = useMemo(() => {
+    return payroll.reduce((acc, p) => acc + (p.status !== "paid" ? p.total_salary : 0), 0);
+  }, [payroll]);
 
   return (
     <div className="space-y-6">

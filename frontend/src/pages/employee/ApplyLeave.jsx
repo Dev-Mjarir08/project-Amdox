@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { FiPlus, FiCalendar, FiFileText, FiCheck, FiX, FiClock } from "react-icons/fi";
 import PageHeader from "../../components/common/PageHeader.jsx";
 import { apiFetch } from "../../utils/api.js";
@@ -18,7 +18,7 @@ export default function ApplyLeave() {
     reason: "",
   });
 
-  const loadRequests = async () => {
+  const loadRequests = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiFetch("/api/leaves");
@@ -28,13 +28,13 @@ export default function ApplyLeave() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadRequests();
-  }, []);
+  }, [loadRequests]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     try {
       setActionLoading(true);
@@ -57,26 +57,28 @@ export default function ApplyLeave() {
     } finally {
       setActionLoading(false);
     }
-  };
+  }, [formData, loadRequests]);
 
   // Leave balances calculations based on approved leaves
-  const getApprovedDaysCount = (type) => {
-    return requests
-      .filter((r) => r.type === type && r.status === "approved")
-      .reduce((acc, r) => {
-        const start = new Date(r.start_date);
-        const end = new Date(r.end_date);
-        const diffTime = Math.abs(end - start);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        return acc + diffDays;
-      }, 0);
-  };
+  const leaveBalances = useMemo(() => {
+    const getApprovedDaysCount = (type) => {
+      return requests
+        .filter((r) => r.type === type && r.status === "approved")
+        .reduce((acc, r) => {
+          const start = new Date(r.start_date);
+          const end = new Date(r.end_date);
+          const diffTime = Math.abs(end - start);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+          return acc + diffDays;
+        }, 0);
+    };
 
-  const leaveBalances = [
-    { name: "Annual Leave", type: "Annual", limit: 20, used: getApprovedDaysCount("Annual"), tone: "blue" },
-    { name: "Sick Leave", type: "Sick", limit: 10, used: getApprovedDaysCount("Sick"), tone: "rose" },
-    { name: "Casual Leave", type: "Casual", limit: 12, used: getApprovedDaysCount("Casual"), tone: "amber" },
-  ];
+    return [
+      { name: "Annual Leave", type: "Annual", limit: 20, used: getApprovedDaysCount("Annual"), tone: "blue" },
+      { name: "Sick Leave", type: "Sick", limit: 10, used: getApprovedDaysCount("Sick"), tone: "rose" },
+      { name: "Casual Leave", type: "Casual", limit: 12, used: getApprovedDaysCount("Casual"), tone: "amber" },
+    ];
+  }, [requests]);
 
   return (
     <div className="space-y-6">

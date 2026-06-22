@@ -1,7 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { FiCheckSquare, FiCalendar, FiClock, FiAlertCircle, FiCheck } from "react-icons/fi";
 import PageHeader from "../../components/common/PageHeader.jsx";
 import { apiFetch } from "../../utils/api.js";
+
+const statuses = [
+  { key: "pending", label: "Pending", color: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-350" },
+  { key: "in-progress", label: "In Progress", color: "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400" },
+  { key: "blocked", label: "Blocked", color: "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400" },
+  { key: "completed", label: "Completed", color: "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400" },
+];
 
 export default function MyTasks() {
   const [tasks, setTasks] = useState([]);
@@ -9,7 +16,7 @@ export default function MyTasks() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const loadTasks = async () => {
+  const loadTasks = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiFetch("/api/tasks");
@@ -19,13 +26,13 @@ export default function MyTasks() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadTasks();
-  }, []);
+  }, [loadTasks]);
 
-  const handleStatusChange = async (id, newStatus) => {
+  const handleStatusChange = useCallback(async (id, newStatus) => {
     try {
       setError("");
       await apiFetch(`/api/tasks/${id}`, {
@@ -38,14 +45,7 @@ export default function MyTasks() {
     } catch (err) {
       setError(err.message);
     }
-  };
-
-  const statuses = [
-    { key: "pending", label: "Pending", color: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-350" },
-    { key: "in-progress", label: "In Progress", color: "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400" },
-    { key: "blocked", label: "Blocked", color: "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400" },
-    { key: "completed", label: "Completed", color: "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400" },
-  ];
+  }, [loadTasks]);
 
   return (
     <div className="space-y-6">

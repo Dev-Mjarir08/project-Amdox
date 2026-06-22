@@ -18,7 +18,7 @@ export const markNotificationRead = createAsyncThunk(
   "notifications/markRead",
   async (id, { rejectWithValue }) => {
     try {
-      const res = await axiosInstance.populate || await axiosInstance.patch(`/api/notifications/${id}/read`);
+      const res = await axiosInstance.patch(`/api/notifications/${id}/read`);
       return res.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.error || "Failed to mark notification read");

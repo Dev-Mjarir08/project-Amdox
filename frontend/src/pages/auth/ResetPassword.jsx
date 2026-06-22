@@ -1,4 +1,4 @@
-const React = require("react");
+import React from 'react';
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { FiArrowLeft, FiLock, FiCheck } from "react-icons/fi";

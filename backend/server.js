@@ -36,9 +36,13 @@ await connectDB();
 
 // Global Middlewares
 app.use(helmet());
+const allowedOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(",").map(url => url.trim())
+  : "http://localhost:5173";
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: allowedOrigins,
     credentials: true,
   })
 );

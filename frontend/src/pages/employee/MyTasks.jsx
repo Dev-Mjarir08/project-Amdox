@@ -91,7 +91,7 @@ export default function MyTasks() {
                       onChange={(e) => handleStatusChange(task.id, e.target.value)}
                       className={`h-8 rounded-lg px-2.5 text-xs font-bold transition border-none cursor-pointer focus:ring-2 focus:ring-primary/20 ${
                         task.status === "completed"
-                          ? "bg-green-55 bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-400"
+                          ? "bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-400"
                           : task.status === "blocked"
                           ? "bg-red-50 text-red-750 dark:bg-red-950/40 dark:text-red-450"
                           : task.status === "in-progress"

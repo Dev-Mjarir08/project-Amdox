@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { FiBarChart2, FiBriefcase, FiCheckSquare, FiDownload, FiUserCheck } from "react-icons/fi";
 import ProjectChart from "../../components/dashboard/ProjectChart.jsx";
 import RecentEmployees from "../../components/dashboard/RecentEmployees.jsx";
@@ -25,16 +25,15 @@ export default function ManagerDashboard() {
   const loadManagerData = async () => {
     try {
       setLoading(true);
-      const statsData = await apiFetch("/api/dashboard/stats");
+      const [statsData, empData, taskData, projData] = await Promise.all([
+        apiFetch("/api/dashboard/stats"),
+        apiFetch("/api/employees"),
+        apiFetch("/api/tasks"),
+        apiFetch("/api/projects")
+      ]);
       setStats(statsData);
-
-      const empData = await apiFetch("/api/employees");
       setEmployees(empData);
-
-      const taskData = await apiFetch("/api/tasks");
       setTasks(taskData);
-
-      const projData = await apiFetch("/api/projects");
       setProjects(projData);
     } catch (err) {
       console.error("Failed to load Manager dashboard data:", err.message);
@@ -55,43 +54,51 @@ export default function ManagerDashboard() {
   ];
 
   // Format Project Chart
-  const projectChartData = projects.map((p) => ({
-    name: p.name ? p.name.split(" ")[0] : "Project",
-    progress: p.progress,
-  }));
+  const projectChartData = useMemo(() => {
+    return projects.map((p) => ({
+      name: p.name ? p.name.split(" ")[0] : "Project",
+      progress: p.progress,
+    }));
+  }, [projects]);
 
   // Format Task Chart
-  const totalTasks = tasks.length || 1;
-  const completedTasks = tasks.filter((t) => t.status === "completed").length;
-  const inProgressTasks = tasks.filter((t) => t.status === "in-progress").length;
-  const pendingTasks = tasks.filter((t) => t.status === "pending").length;
-  const blockedTasks = tasks.filter((t) => t.status === "blocked").length;
+  const taskChartData = useMemo(() => {
+    const totalTasks = tasks.length || 1;
+    const completedTasks = tasks.filter((t) => t.status === "completed").length;
+    const inProgressTasks = tasks.filter((t) => t.status === "in-progress").length;
+    const pendingTasks = tasks.filter((t) => t.status === "pending").length;
+    const blockedTasks = tasks.filter((t) => t.status === "blocked").length;
 
-  const taskChartData = [
-    { name: "Completed", value: Math.round((completedTasks / totalTasks) * 100) },
-    { name: "In Progress", value: Math.round((inProgressTasks / totalTasks) * 100) },
-    { name: "Pending", value: Math.round((pendingTasks / totalTasks) * 100) },
-    { name: "Blocked", value: Math.round((blockedTasks / totalTasks) * 100) },
-  ];
+    return [
+      { name: "Completed", value: Math.round((completedTasks / totalTasks) * 100) },
+      { name: "In Progress", value: Math.round((inProgressTasks / totalTasks) * 100) },
+      { name: "Pending", value: Math.round((pendingTasks / totalTasks) * 100) },
+      { name: "Blocked", value: Math.round((blockedTasks / totalTasks) * 100) },
+    ];
+  }, [tasks]);
 
   // Format Recent Tasks
-  const recentTasksData = tasks.slice(0, 5).map((t) => ({
-    id: t.id ? t.id.substring(t.id.length - 8).toUpperCase() : "TASK",
-    title: t.title,
-    dueDate: t.due_date,
-    assignedTo: t.assignee_name,
-    priority: "Medium",
-    status: t.status === "in-progress" ? "In Progress" : t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : "Pending",
-  }));
+  const recentTasksData = useMemo(() => {
+    return tasks.slice(0, 5).map((t) => ({
+      id: t.id ? t.id.substring(t.id.length - 8).toUpperCase() : "TASK",
+      title: t.title,
+      dueDate: t.due_date,
+      assignedTo: t.assignee_name,
+      priority: "Medium",
+      status: t.status === "in-progress" ? "In Progress" : t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : "Pending",
+    }));
+  }, [tasks]);
 
   // Format Recent Employees
-  const recentEmployeesData = employees.slice(0, 5).map((e) => ({
-    id: e.employeeId || "EMP-SYSTEM",
-    name: e.name,
-    department: e.department,
-    role: e.title,
-    status: e.status === "active" ? "Active" : "On Leave",
-  }));
+  const recentEmployeesData = useMemo(() => {
+    return employees.slice(0, 5).map((e) => ({
+      id: e.employeeId || "EMP-SYSTEM",
+      name: e.name,
+      department: e.department,
+      role: e.title,
+      status: e.status === "active" ? "Active" : "On Leave",
+    }));
+  }, [employees]);
 
   if (loading) {
     return (

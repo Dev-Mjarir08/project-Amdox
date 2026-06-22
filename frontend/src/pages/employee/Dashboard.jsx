@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { FiBriefcase, FiCalendar, FiCheckSquare, FiDownload, FiUserCheck } from "react-icons/fi";
 import AttendanceChart from "../../components/dashboard/AttendanceChart.jsx";
 import RecentTasks from "../../components/dashboard/RecentTasks.jsx";
@@ -23,13 +23,13 @@ export default function EmployeeDashboard() {
   const loadEmployeeData = async () => {
     try {
       setLoading(true);
-      const statsData = await apiFetch("/api/dashboard/stats");
+      const [statsData, taskData, attendanceData] = await Promise.all([
+        apiFetch("/api/dashboard/stats"),
+        apiFetch("/api/tasks"),
+        apiFetch("/api/attendance")
+      ]);
       setStats(statsData);
-
-      const taskData = await apiFetch("/api/tasks");
       setTasks(taskData);
-
-      const attendanceData = await apiFetch("/api/attendance");
       setAttendance(attendanceData);
     } catch (err) {
       console.error("Failed to load employee dashboard data:", err.message);
@@ -43,35 +43,41 @@ export default function EmployeeDashboard() {
   }, []);
 
   // Format Task Chart
-  const totalTasks = tasks.length || 1;
-  const completedTasks = tasks.filter((t) => t.status === "completed").length;
-  const inProgressTasks = tasks.filter((t) => t.status === "in-progress").length;
-  const pendingTasks = tasks.filter((t) => t.status === "pending").length;
-  const blockedTasks = tasks.filter((t) => t.status === "blocked").length;
+  const taskChartData = useMemo(() => {
+    const totalTasks = tasks.length || 1;
+    const completedTasks = tasks.filter((t) => t.status === "completed").length;
+    const inProgressTasks = tasks.filter((t) => t.status === "in-progress").length;
+    const pendingTasks = tasks.filter((t) => t.status === "pending").length;
+    const blockedTasks = tasks.filter((t) => t.status === "blocked").length;
 
-  const taskChartData = [
-    { name: "Completed", value: Math.round((completedTasks / totalTasks) * 100) },
-    { name: "In Progress", value: Math.round((inProgressTasks / totalTasks) * 100) },
-    { name: "Pending", value: Math.round((pendingTasks / totalTasks) * 100) },
-    { name: "Blocked", value: Math.round((blockedTasks / totalTasks) * 100) },
-  ];
+    return [
+      { name: "Completed", value: Math.round((completedTasks / totalTasks) * 100) },
+      { name: "In Progress", value: Math.round((inProgressTasks / totalTasks) * 100) },
+      { name: "Pending", value: Math.round((pendingTasks / totalTasks) * 100) },
+      { name: "Blocked", value: Math.round((blockedTasks / totalTasks) * 100) },
+    ];
+  }, [tasks]);
 
   // Format Recent Tasks
-  const recentTasksData = tasks.slice(0, 5).map((t) => ({
-    id: t.id ? t.id.substring(t.id.length - 8).toUpperCase() : "TASK",
-    title: t.title,
-    dueDate: t.due_date,
-    assignedTo: t.assignee_name || "Self",
-    priority: "Medium",
-    status: t.status === "in-progress" ? "In Progress" : t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : "Pending",
-  }));
+  const recentTasksData = useMemo(() => {
+    return tasks.slice(0, 5).map((t) => ({
+      id: t.id ? t.id.substring(t.id.length - 8).toUpperCase() : "TASK",
+      title: t.title,
+      dueDate: t.due_date,
+      assignedTo: t.assignee_name || "Self",
+      priority: "Medium",
+      status: t.status === "in-progress" ? "In Progress" : t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : "Pending",
+    }));
+  }, [tasks]);
 
   // Format Attendance Chart
-  const attendanceChartData = attendance.slice(0, 6).reverse().map((att) => ({
-    month: att.date ? att.date.substring(5) : "", // MM-DD
-    present: att.status === "present" ? 8 : 0,
-    remote: att.status === "remote" ? 8 : 0,
-  }));
+  const attendanceChartData = useMemo(() => {
+    return attendance.slice(0, 6).reverse().map((att) => ({
+      month: att.date ? att.date.substring(5) : "", // MM-DD
+      present: att.status === "present" ? 8 : 0,
+      remote: att.status === "remote" ? 8 : 0,
+    }));
+  }, [attendance]);
 
   if (loading) {
     return (

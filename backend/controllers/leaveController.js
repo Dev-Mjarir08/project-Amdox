@@ -17,34 +17,33 @@ const getLeaves = async (req, res, next) => {
       .populate("approvedBy", "name")
       .sort({ createdAt: -1 });
 
-    const mapped = await Promise.all(
-      leaves.map(async (l) => {
-        if (!l.employee) return null;
+    const employeeIds = leaves.map(l => l.employee?._id).filter(Boolean);
+    const employees = await Employee.find({ user: { $in: employeeIds } }).populate("department");
+    const empMap = new Map(employees.map(e => [e.user.toString(), e]));
 
-        let departmentName = "General";
-        const empInfo = await Employee.findOne({ user: l.employee._id }).populate("department");
-        if (empInfo && empInfo.department) {
-          departmentName = empInfo.department.departmentName;
-        }
+    const mapped = leaves.map((l) => {
+      if (!l.employee) return null;
 
-        return {
-          id: l._id,
-          user_id: l.employee._id,
-          name: l.employee.name,
-          initials: l.employee.initials,
-          department: departmentName,
-          type: l.leaveType,
-          start_date: l.startDate,
-          end_date: l.endDate,
-          reason: l.reason,
-          status: l.status,
-          approved_by: l.approvedBy ? l.approvedBy._id : null,
-          approved_by_name: l.approvedBy ? l.approvedBy.name : null,
-        };
-      })
-    );
+      const empInfo = empMap.get(l.employee._id.toString());
+      const departmentName = empInfo?.department?.departmentName || "General";
 
-    res.json(mapped.filter(Boolean));
+      return {
+        id: l._id,
+        user_id: l.employee._id,
+        name: l.employee.name,
+        initials: l.employee.initials,
+        department: departmentName,
+        type: l.leaveType,
+        start_date: l.startDate,
+        end_date: l.endDate,
+        reason: l.reason,
+        status: l.status,
+        approved_by: l.approvedBy ? l.approvedBy._id : null,
+        approved_by_name: l.approvedBy ? l.approvedBy.name : null,
+      };
+    }).filter(Boolean);
+
+    res.json(mapped);
   } catch (err) {
     next(err);
   }
@@ -56,6 +55,55 @@ const applyLeave = async (req, res, next) => {
     const { type, start_date, end_date, reason } = req.body;
     if (!type || !start_date || !end_date) {
       return res.status(400).json({ error: "Leave type, start date, and end date are required." });
+    }
+
+    const start = new Date(start_date);
+    const end = new Date(end_date);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({ error: "Invalid date format." });
+    }
+
+    if (start > end) {
+      return res.status(400).json({ error: "Start date must be before or equal to End date." });
+    }
+
+    // Check for overlapping pending or approved leave requests
+    const overlapping = await Leave.findOne({
+      employee: req.user._id,
+      status: { $in: ["pending", "approved"] },
+      startDate: { $lte: end_date },
+      endDate: { $gte: start_date }
+    });
+
+    if (overlapping) {
+      return res.status(400).json({ error: "You already have a pending or approved leave request during this period." });
+    }
+
+    // Check leave balance (Annual: 20, Sick: 10, Casual: 12)
+    const limitMap = { Annual: 20, Sick: 10, Casual: 12 };
+    const limit = limitMap[type] || 0;
+
+    const approvedLeaves = await Leave.find({
+      employee: req.user._id,
+      leaveType: type,
+      status: "approved"
+    });
+
+    const usedDays = approvedLeaves.reduce((acc, l) => {
+      const s = new Date(l.startDate);
+      const e = new Date(l.endDate);
+      const diffTime = e - s;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      return acc + diffDays;
+    }, 0);
+
+    const requestedDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+    if (usedDays + requestedDays > limit) {
+      return res.status(400).json({
+        error: `Insufficient leave balance. You have requested ${requestedDays} days, but only have ${limit - usedDays} days remaining.`
+      });
     }
 
     const leave = new Leave({

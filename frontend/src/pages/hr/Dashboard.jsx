@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { FiCalendar, FiCreditCard, FiDownload, FiUserCheck, FiUsers } from "react-icons/fi";
 import AttendanceChart from "../../components/dashboard/AttendanceChart.jsx";
 import RecentEmployees from "../../components/dashboard/RecentEmployees.jsx";
@@ -25,16 +25,15 @@ export default function HRDashboard() {
   const loadHRData = async () => {
     try {
       setLoading(true);
-      const statsData = await apiFetch("/api/dashboard/stats");
+      const [statsData, empData, taskData, attendanceData] = await Promise.all([
+        apiFetch("/api/dashboard/stats"),
+        apiFetch("/api/employees"),
+        apiFetch("/api/tasks"),
+        apiFetch("/api/attendance")
+      ]);
       setStats(statsData);
-
-      const empData = await apiFetch("/api/employees");
       setEmployees(empData);
-
-      const taskData = await apiFetch("/api/tasks");
       setTasks(taskData);
-
-      const attendanceData = await apiFetch("/api/attendance");
       setAttendance(attendanceData);
     } catch (err) {
       console.error("Failed to load HR dashboard data:", err.message);
@@ -48,56 +47,66 @@ export default function HRDashboard() {
   }, []);
 
   // Format Stat Cards
-  const totalEmployees = employees.length;
-  const presentCount = stats?.todayStats?.present || 0;
-  const leaveRequestsCount = stats?.todayStats?.leavesPending || 0;
+  const hrStatCards = useMemo(() => {
+    const totalEmployees = employees.length;
+    const presentCount = stats?.todayStats?.present || 0;
+    const leaveRequestsCount = stats?.todayStats?.leavesPending || 0;
 
-  const hrStatCards = [
-    { label: "Total Employees", value: totalEmployees.toString(), change: "+8.4%", trend: "up", icon: "employees", tone: "blue" },
-    { label: "Present Today", value: presentCount.toString(), change: "+2.2%", trend: "up", icon: "attendance", tone: "emerald" },
-    { label: "Leave Requests", value: leaveRequestsCount.toString(), change: `+${leaveRequestsCount} new`, trend: "up", icon: "leave", tone: "amber" },
-    { label: "Payroll Ready", value: "96%", change: "+1.8%", trend: "up", icon: "payroll", tone: "cyan" },
-  ];
+    return [
+      { label: "Total Employees", value: totalEmployees.toString(), change: "+8.4%", trend: "up", icon: "employees", tone: "blue" },
+      { label: "Present Today", value: presentCount.toString(), change: "+2.2%", trend: "up", icon: "attendance", tone: "emerald" },
+      { label: "Leave Requests", value: leaveRequestsCount.toString(), change: `+${leaveRequestsCount} new`, trend: "up", icon: "leave", tone: "amber" },
+      { label: "Payroll Ready", value: "96%", change: "+1.8%", trend: "up", icon: "payroll", tone: "cyan" },
+    ];
+  }, [employees, stats]);
 
   // Format Task Chart
-  const totalTasks = tasks.length || 1;
-  const completedTasks = tasks.filter((t) => t.status === "completed").length;
-  const inProgressTasks = tasks.filter((t) => t.status === "in-progress").length;
-  const pendingTasks = tasks.filter((t) => t.status === "pending").length;
-  const blockedTasks = tasks.filter((t) => t.status === "blocked").length;
+  const taskChartData = useMemo(() => {
+    const totalTasks = tasks.length || 1;
+    const completedTasks = tasks.filter((t) => t.status === "completed").length;
+    const inProgressTasks = tasks.filter((t) => t.status === "in-progress").length;
+    const pendingTasks = tasks.filter((t) => t.status === "pending").length;
+    const blockedTasks = tasks.filter((t) => t.status === "blocked").length;
 
-  const taskChartData = [
-    { name: "Completed", value: Math.round((completedTasks / totalTasks) * 100) },
-    { name: "In Progress", value: Math.round((inProgressTasks / totalTasks) * 100) },
-    { name: "Pending", value: Math.round((pendingTasks / totalTasks) * 100) },
-    { name: "Blocked", value: Math.round((blockedTasks / totalTasks) * 100) },
-  ];
+    return [
+      { name: "Completed", value: Math.round((completedTasks / totalTasks) * 100) },
+      { name: "In Progress", value: Math.round((inProgressTasks / totalTasks) * 100) },
+      { name: "Pending", value: Math.round((pendingTasks / totalTasks) * 100) },
+      { name: "Blocked", value: Math.round((blockedTasks / totalTasks) * 100) },
+    ];
+  }, [tasks]);
 
   // Format Recent Tasks
-  const recentTasksData = tasks.slice(0, 5).map((t) => ({
-    id: t.id ? t.id.substring(t.id.length - 8).toUpperCase() : "TASK",
-    title: t.title,
-    dueDate: t.due_date,
-    assignedTo: t.assignee_name,
-    priority: "Medium",
-    status: t.status === "in-progress" ? "In Progress" : t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : "Pending",
-  }));
+  const recentTasksData = useMemo(() => {
+    return tasks.slice(0, 5).map((t) => ({
+      id: t.id ? t.id.substring(t.id.length - 8).toUpperCase() : "TASK",
+      title: t.title,
+      dueDate: t.due_date,
+      assignedTo: t.assignee_name,
+      priority: "Medium",
+      status: t.status === "in-progress" ? "In Progress" : t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : "Pending",
+    }));
+  }, [tasks]);
 
   // Format Recent Employees
-  const recentEmployeesData = employees.slice(0, 5).map((e) => ({
-    id: e.employeeId || "EMP-SYSTEM",
-    name: e.name,
-    department: e.department,
-    role: e.title,
-    status: e.status === "active" ? "Active" : "On Leave",
-  }));
+  const recentEmployeesData = useMemo(() => {
+    return employees.slice(0, 5).map((e) => ({
+      id: e.employeeId || "EMP-SYSTEM",
+      name: e.name,
+      department: e.department,
+      role: e.title,
+      status: e.status === "active" ? "Active" : "On Leave",
+    }));
+  }, [employees]);
 
   // Format Attendance Chart
-  const attendanceChartData = attendance.slice(0, 6).reverse().map((att) => ({
-    month: att.date ? att.date.substring(5) : "", // MM-DD
-    present: attendance.filter((a) => a.date === att.date && a.status === "present").length * 150 + 800,
-    remote: attendance.filter((a) => a.date === att.date && a.status === "remote").length * 80 + 150,
-  }));
+  const attendanceChartData = useMemo(() => {
+    return attendance.slice(0, 6).reverse().map((att) => ({
+      month: att.date ? att.date.substring(5) : "", // MM-DD
+      present: attendance.filter((a) => a.date === att.date && a.status === "present").length * 150 + 800,
+      remote: attendance.filter((a) => a.date === att.date && a.status === "remote").length * 80 + 150,
+    }));
+  }, [attendance]);
 
   if (loading) {
     return (

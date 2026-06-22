@@ -9,12 +9,27 @@ import Department from "../models/Department.js";
 
 const getAdminDashboardStats = async (req, res, next) => {
   try {
-    const totalEmployees = await User.countDocuments({ status: "active" });
-    const activeProjects = await Project.countDocuments({ status: "Active" });
-    const pendingTasks = await Task.countDocuments({ status: { $ne: "completed" } });
-    
-    const inventoryItemsRaw = await Inventory.find();
-    const inventoryItems = inventoryItemsRaw.reduce((acc, item) => acc + item.stock, 0);
+    const today = new Date().toISOString().split("T")[0];
+
+    const [
+      totalEmployees,
+      activeProjects,
+      pendingTasks,
+      inventoryItemsAgg,
+      presentToday,
+      remoteToday,
+      leaveRequests
+    ] = await Promise.all([
+      User.countDocuments({ status: "active" }),
+      Project.countDocuments({ status: "Active" }),
+      Task.countDocuments({ status: { $ne: "completed" } }),
+      Inventory.aggregate([{ $group: { _id: null, totalStock: { $sum: "$stock" } } }]),
+      Attendance.countDocuments({ date: today, status: "present" }),
+      Attendance.countDocuments({ date: today, status: "remote" }),
+      Leave.countDocuments({ status: "pending" })
+    ]);
+
+    const inventoryItems = inventoryItemsAgg[0]?.totalStock || 0;
 
     // Stat cards mapping
     const statCards = [
@@ -23,12 +38,6 @@ const getAdminDashboardStats = async (req, res, next) => {
       { label: "Pending Tasks", value: pendingTasks.toString(), change: "-3.8%", trend: "down", icon: "tasks", tone: "amber" },
       { label: "Inventory Items", value: inventoryItems.toLocaleString(), change: "+2.6%", trend: "up", icon: "inventory", tone: "emerald" },
     ];
-
-    // Attendance stats
-    const today = new Date().toISOString().split("T")[0];
-    const presentToday = await Attendance.countDocuments({ date: today, status: "present" });
-    const remoteToday = await Attendance.countDocuments({ date: today, status: "remote" });
-    const leaveRequests = await Leave.countDocuments({ status: "pending" });
 
     res.json({
       statCards,
@@ -47,17 +56,25 @@ const getEmployeeDashboardStats = async (req, res, next) => {
   try {
     const userId = req.user._id;
 
-    const assignedTasks = await Task.countDocuments({ assignedTo: userId, status: { $ne: "completed" } });
-    const completedTasks = await Task.countDocuments({ assignedTo: userId, status: "completed" });
+    const [
+      assignedTasks,
+      completedTasks,
+      totalPresent,
+      approvedLeaves
+    ] = await Promise.all([
+      Task.countDocuments({ assignedTo: userId, status: { $ne: "completed" } }),
+      Task.countDocuments({ assignedTo: userId, status: "completed" }),
+      Attendance.countDocuments({ employee: userId }),
+      Leave.find({ employee: userId, status: "approved" })
+    ]);
+
     const totalTasks = assignedTasks + completedTasks;
     
     // Attendance rate
     const totalWorkingDays = 22; // default standard
-    const totalPresent = await Attendance.countDocuments({ employee: userId });
     const attendanceRate = totalWorkingDays > 0 ? Math.round((totalPresent / totalWorkingDays) * 100) : 100;
 
     // Leave balance (out of 20)
-    const approvedLeaves = await Leave.find({ employee: userId, status: "approved" });
     const leavesUsed = approvedLeaves.reduce((acc, l) => {
       const start = new Date(l.startDate);
       const end = new Date(l.endDate);
@@ -87,11 +104,19 @@ const getDashboardStats = async (req, res, next) => {
     const { role } = req.user;
 
     if (role === "admin") {
-      const totalEmployees = await User.countDocuments();
-      const activeProjects = await Project.countDocuments({ status: "Active" });
-      const pendingTasks = await Task.countDocuments({ status: { $ne: "completed" } });
-      const inventoryItemsRaw = await Inventory.find();
-      const inventoryItems = inventoryItemsRaw.reduce((acc, item) => acc + item.stock, 0);
+      const [
+        totalEmployees,
+        activeProjects,
+        pendingTasks,
+        inventoryItemsAgg
+      ] = await Promise.all([
+        User.countDocuments(),
+        Project.countDocuments({ status: "Active" }),
+        Task.countDocuments({ status: { $ne: "completed" } }),
+        Inventory.aggregate([{ $group: { _id: null, totalStock: { $sum: "$stock" } } }])
+      ]);
+
+      const inventoryItems = inventoryItemsAgg[0]?.totalStock || 0;
 
       const statCards = [
         { label: "Total Employees", value: totalEmployees.toLocaleString(), change: "+1.2%", trend: "up", icon: "employees", tone: "blue" },
@@ -104,15 +129,25 @@ const getDashboardStats = async (req, res, next) => {
     }
 
     if (role === "hr") {
-      const totalEmployees = await User.countDocuments();
       const today = new Date().toISOString().split("T")[0];
-      const presentToday = await Attendance.countDocuments({ date: today, status: "present" });
-      const remoteToday = await Attendance.countDocuments({ date: today, status: "remote" });
-      const presentTotal = presentToday + remoteToday;
-      const leaveRequests = await Leave.countDocuments({ status: "pending" });
 
-      const processedPayroll = await Payroll.countDocuments({ status: "paid" });
-      const totalPayroll = await Payroll.countDocuments();
+      const [
+        totalEmployees,
+        presentToday,
+        remoteToday,
+        leaveRequests,
+        processedPayroll,
+        totalPayroll
+      ] = await Promise.all([
+        User.countDocuments(),
+        Attendance.countDocuments({ date: today, status: "present" }),
+        Attendance.countDocuments({ date: today, status: "remote" }),
+        Leave.countDocuments({ status: "pending" }),
+        Payroll.countDocuments({ status: "paid" }),
+        Payroll.countDocuments()
+      ]);
+
+      const presentTotal = presentToday + remoteToday;
       const payrollReadyRate = totalPayroll > 0 ? Math.round((processedPayroll / totalPayroll) * 100) : 100;
 
       const statCards = [
@@ -136,9 +171,12 @@ const getDashboardStats = async (req, res, next) => {
       const managedProjects = await Project.find({ manager: req.user._id });
       const managedProjectIds = managedProjects.map(p => p._id);
       
-      const activeProjects = await Project.countDocuments({ manager: req.user._id, status: "Active" });
-      const pendingTasks = await Task.countDocuments({ project: { $in: managedProjectIds }, status: { $ne: "completed" } });
-      const blockedTasks = await Task.countDocuments({ project: { $in: managedProjectIds }, status: "blocked" });
+      const activeProjectsCount = managedProjects.filter(p => p.status === "Active").length;
+
+      const [pendingTasks, blockedTasks] = await Promise.all([
+        Task.countDocuments({ project: { $in: managedProjectIds }, status: { $ne: "completed" } }),
+        Task.countDocuments({ project: { $in: managedProjectIds }, status: "blocked" })
+      ]);
 
       // Count unique team members assigned to manager's projects
       const uniqueMembers = new Set();
@@ -150,7 +188,7 @@ const getDashboardStats = async (req, res, next) => {
       const teamMembers = uniqueMembers.size;
 
       const statCards = [
-        { label: "Active Projects", value: activeProjects.toString(), change: `+${managedProjects.length} total`, trend: "up", icon: "projects", tone: "blue" },
+        { label: "Active Projects", value: activeProjectsCount.toString(), change: `+${managedProjects.length} total`, trend: "up", icon: "projects", tone: "blue" },
         { label: "Team Members", value: teamMembers.toString(), change: "+0 joined", trend: "up", icon: "team", tone: "emerald" },
         { label: "Pending Tasks", value: pendingTasks.toString(), change: "Stable", trend: "down", icon: "tasks", tone: "amber" },
         { label: "Blocked Work", value: blockedTasks.toString(), change: `+${blockedTasks} alert`, trend: "up", icon: "reports", tone: "rose" },
@@ -162,14 +200,21 @@ const getDashboardStats = async (req, res, next) => {
     if (role === "employee") {
       const userId = req.user._id;
 
-      const assignedTasks = await Task.countDocuments({ assignedTo: userId, status: { $ne: "completed" } });
-      const completedTasks = await Task.countDocuments({ assignedTo: userId, status: "completed" });
-      
+      const [
+        assignedTasks,
+        completedTasks,
+        totalPresent,
+        approvedLeaves
+      ] = await Promise.all([
+        Task.countDocuments({ assignedTo: userId, status: { $ne: "completed" } }),
+        Task.countDocuments({ assignedTo: userId, status: "completed" }),
+        Attendance.countDocuments({ employee: userId }),
+        Leave.find({ employee: userId, status: "approved" })
+      ]);
+
       const totalWorkingDays = 22;
-      const totalPresent = await Attendance.countDocuments({ employee: userId });
       const attendanceRate = totalWorkingDays > 0 ? Math.round((totalPresent / totalWorkingDays) * 100) : 100;
 
-      const approvedLeaves = await Leave.find({ employee: userId, status: "approved" });
       const leavesUsed = approvedLeaves.reduce((acc, l) => {
         const start = new Date(l.startDate);
         const end = new Date(l.endDate);

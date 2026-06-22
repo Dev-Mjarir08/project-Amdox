@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect } from "react";
+import { createContext, useContext, useEffect, useMemo, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { loadCurrentUser, loginUser, registerUser, logoutUser, clearError } from "../redux/slices/authSlice";
 
@@ -12,39 +12,43 @@ export function AuthProvider({ children }) {
     dispatch(loadCurrentUser());
   }, [dispatch]);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     const result = await dispatch(loginUser({ email, password }));
     if (loginUser.rejected.match(result)) {
       throw new Error(result.payload || "Login failed");
     }
-    return result.payload.user;
-  };
+    return result.payload;
+  }, [dispatch]);
 
-  const register = async (name, email, password, company, role = "admin") => {
+  const register = useCallback(async (name, email, password, company, role = "admin") => {
     const result = await dispatch(registerUser({ name, email, password, role }));
     if (registerUser.rejected.match(result)) {
       throw new Error(result.payload || "Registration failed");
     }
     return result.payload.user;
-  };
+  }, [dispatch]);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     dispatch(logoutUser());
-  };
+  }, [dispatch]);
+
+  const clearAuthError = useCallback(() => {
+    dispatch(clearError());
+  }, [dispatch]);
+
+  const contextValue = useMemo(() => ({
+    user,
+    token,
+    loading,
+    error,
+    login,
+    register,
+    logout,
+    clearAuthError,
+  }), [user, token, loading, error, login, register, logout, clearAuthError]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        token,
-        loading,
-        error,
-        login,
-        register,
-        logout,
-        clearAuthError: () => dispatch(clearError()),
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

@@ -13,32 +13,31 @@ const getAttendanceLogs = async (req, res, next) => {
       .populate("employee", "name initials")
       .sort({ date: -1, checkIn: -1 });
 
-    const mapped = await Promise.all(
-      logs.map(async (log) => {
-        if (!log.employee) return null;
-        
-        let departmentName = "General";
-        const empInfo = await Employee.findOne({ user: log.employee._id }).populate("department");
-        if (empInfo && empInfo.department) {
-          departmentName = empInfo.department.departmentName;
-        }
+    const employeeIds = logs.map(l => l.employee?._id).filter(Boolean);
+    const employees = await Employee.find({ user: { $in: employeeIds } }).populate("department");
+    const empMap = new Map(employees.map(e => [e.user.toString(), e]));
 
-        return {
-          id: log._id,
-          user_id: log.employee._id,
-          name: log.employee.name,
-          initials: log.employee.initials,
-          department: departmentName,
-          date: log.date,
-          check_in: log.checkIn,
-          check_out: log.checkOut,
-          status: log.status,
-          hours_worked: log.totalHours,
-        };
-      })
-    );
+    const mapped = logs.map((log) => {
+      if (!log.employee) return null;
+      
+      const empInfo = empMap.get(log.employee._id.toString());
+      const departmentName = empInfo?.department?.departmentName || "General";
 
-    res.json(mapped.filter(Boolean));
+      return {
+        id: log._id,
+        user_id: log.employee._id,
+        name: log.employee.name,
+        initials: log.employee.initials,
+        department: departmentName,
+        date: log.date,
+        check_in: log.checkIn,
+        check_out: log.checkOut,
+        status: log.status,
+        hours_worked: log.totalHours,
+      };
+    }).filter(Boolean);
+
+    res.json(mapped);
   } catch (err) {
     next(err);
   }
@@ -122,24 +121,23 @@ const clockOut = async (req, res, next) => {
 
     const log = await Attendance.findOne({
       employee: req.user._id,
-      date: today,
       checkOut: null,
-    });
+    }).sort({ createdAt: -1 });
 
     if (!log) {
-      return res.status(400).json({ error: "No active clock-in session found for today." });
+      return res.status(400).json({ error: "No active clock-in session found." });
     }
 
-    // Calculate hours worked
-    const parseTimeToSeconds = (timeStr) => {
-      const [h, m, s] = timeStr.split(":").map(Number);
-      return h * 3600 + m * 60 + s;
-    };
+    // Calculate hours worked using Date objects to handle cross-day clocking
+    const checkInDate = new Date(`${log.date}T${log.checkIn}Z`);
+    let checkOutDate = new Date(`${today}T${checkOutTime}Z`);
 
-    const inSecs = parseTimeToSeconds(log.checkIn);
-    const outSecs = parseTimeToSeconds(checkOutTime);
-    const diff = outSecs - inSecs;
-    const diffHours = parseFloat((diff / 3600).toFixed(2));
+    if (checkOutDate < checkInDate) {
+      checkOutDate.setDate(checkOutDate.getDate() + 1);
+    }
+
+    const diffMs = checkOutDate - checkInDate;
+    const diffHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
 
     log.checkOut = checkOutTime;
     log.totalHours = diffHours > 0 ? diffHours : 0.01;

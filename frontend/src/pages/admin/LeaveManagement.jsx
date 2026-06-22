@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { FiCheck, FiX, FiCalendar, FiUser, FiInfo } from "react-icons/fi";
 import PageHeader from "../../components/common/PageHeader.jsx";
 import { apiFetch } from "../../utils/api.js";
@@ -9,7 +9,7 @@ export default function LeaveManagement() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const loadRequests = async () => {
+  const loadRequests = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiFetch("/api/leaves");
@@ -19,13 +19,13 @@ export default function LeaveManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadRequests();
-  }, []);
+  }, [loadRequests]);
 
-  const handleUpdateStatus = async (id, status) => {
+  const handleUpdateStatus = useCallback(async (id, status) => {
     try {
       setError("");
       await apiFetch(`/api/leaves/${id}`, {
@@ -38,7 +38,7 @@ export default function LeaveManagement() {
     } catch (err) {
       setError(err.message);
     }
-  };
+  }, [loadRequests]);
 
   return (
     <div className="space-y-6">

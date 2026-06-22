@@ -13,7 +13,7 @@ import { login,
 
 router.post("/login", login);
 router.post("/register-admin", checkAdminRegistrationAccess, registerAdmin);
-router.post("/register", checkAdminRegistrationAccess, registerAdmin);
+router.post("/register", checkAdminRegistrationAccess, register);
 router.post("/logout", logout);
 router.get("/me", verifyToken, me);
 router.post("/forgot-password", forgotPassword);

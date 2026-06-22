@@ -92,8 +92,15 @@ const createEmployee = async (req, res, next) => {
     });
     await user.save();
 
-    // 2. Create Employee
-    const employeeId = `EMP-${Math.floor(1000 + Math.random() * 9000)}`;
+    // 2. Create Employee with unique ID verification loop
+    let employeeId;
+    let exists = true;
+    while (exists) {
+      employeeId = `EMP-${Math.floor(1000 + Math.random() * 9000)}`;
+      const duplicate = await Employee.findOne({ employeeId });
+      if (!duplicate) exists = false;
+    }
+
     const employee = new Employee({
       employeeId,
       user: user._id,
@@ -177,6 +184,7 @@ const updateEmployee = async (req, res, next) => {
     if (title) employee.designation = title;
     if (salary !== undefined && (req.user.role === "admin" || req.user.role === "hr")) employee.salary = salary;
 
+    let finalDeptName = "General";
     if (department) {
       let deptObj = await Department.findOne({ departmentName: department });
       if (!deptObj) {
@@ -184,6 +192,12 @@ const updateEmployee = async (req, res, next) => {
         await deptObj.save();
       }
       employee.department = deptObj._id;
+      finalDeptName = department;
+    } else if (employee.department) {
+      const deptObj = await Department.findById(employee.department);
+      if (deptObj) {
+        finalDeptName = deptObj.departmentName;
+      }
     }
 
     await employee.save();
@@ -194,10 +208,10 @@ const updateEmployee = async (req, res, next) => {
       email: user.email,
       role: user.role,
       title: employee.designation,
-      department: department || (employee.department ? (await Department.findById(employee.department)).departmentName : "General"),
+      department: finalDeptName,
       initials: user.initials,
       salary: employee.salary,
-      join_date: employee.joiningDate.toISOString().split("T")[0],
+      join_date: employee.joiningDate ? employee.joiningDate.toISOString().split("T")[0] : "",
       phone: user.phone,
       status: user.status,
     });

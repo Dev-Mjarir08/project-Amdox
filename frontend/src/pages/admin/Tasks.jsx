@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { FiPlus, FiCheckSquare, FiUser, FiCalendar, FiEdit2, FiTrash2, FiClock, FiAlertCircle } from "react-icons/fi";
 import PageHeader from "../../components/common/PageHeader.jsx";
 import { apiFetch } from "../../utils/api.js";
@@ -31,13 +31,13 @@ export default function Tasks() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const taskData = await apiFetch("/api/tasks");
+      const [taskData, empData, projData] = await Promise.all([
+        apiFetch("/api/tasks"),
+        apiFetch("/api/employees"),
+        apiFetch("/api/projects")
+      ]);
       setTasks(taskData);
-
-      const empData = await apiFetch("/api/employees");
       setEmployees(empData);
-
-      const projData = await apiFetch("/api/projects");
       setProjects(projData);
     } catch (err) {
       setError(err.message);
@@ -134,6 +134,17 @@ export default function Tasks() {
     { key: "completed", label: "Completed", tone: "green", color: "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400" },
   ];
 
+  // Memoize task grouping to prevent duplicate full-array filtering on columns
+  const tasksByStatus = useMemo(() => {
+    const groups = { pending: [], "in-progress": [], blocked: [], completed: [] };
+    tasks.forEach((t) => {
+      if (groups[t.status]) {
+        groups[t.status].push(t);
+      }
+    });
+    return groups;
+  }, [tasks]);
+
   const canManage = currentUser?.role === "admin" || currentUser?.role === "manager";
 
   return (
@@ -174,7 +185,7 @@ export default function Tasks() {
       ) : (
         <div className="grid gap-6 min-h-[500px] lg:grid-cols-4">
           {statuses.map((col) => {
-            const columnTasks = tasks.filter((t) => t.status === col.key);
+            const columnTasks = tasksByStatus[col.key] || [];
             return (
               <section key={col.key} className="flex flex-col gap-4">
                 {/* Column Header */}

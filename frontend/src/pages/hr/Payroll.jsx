@@ -14,9 +14,8 @@ export default function Payroll() {
   const loadPayroll = async () => {
     try {
       setLoading(true);
-      const data = await apiFetch("/api/payroll");
-      // Filter by selected month
-      setPayroll(data.filter((p) => p.month === month));
+      const data = await apiFetch(`/api/payroll?month=${month}`);
+      setPayroll(data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -205,7 +204,7 @@ export default function Payroll() {
                             </button>
                             <button
                               onClick={() => handleUpdateStatus(p.id, "paid")}
-                              className="erp-focus inline-flex h-8 items-center justify-center rounded-lg bg-green-55 bg-green-50 px-2 text-xs font-bold text-green-700 hover:bg-green-100 dark:bg-green-950/30 dark:text-green-400"
+                              className="erp-focus inline-flex h-8 items-center justify-center rounded-lg bg-green-50 px-2 text-xs font-bold text-green-700 hover:bg-green-100 dark:bg-green-950/30 dark:text-green-400"
                             >
                               <FiCheck className="h-3.5 w-3.5 mr-0.5" />
                               Release

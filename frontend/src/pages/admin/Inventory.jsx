@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { FiPlus, FiPackage, FiSearch, FiEdit2, FiTrash2, FiAlertTriangle, FiDollarSign } from "react-icons/fi";
 import PageHeader from "../../components/common/PageHeader.jsx";
 import { apiFetch } from "../../utils/api.js";
@@ -123,13 +123,15 @@ export default function Inventory() {
     }
   };
 
-  const filteredItems = items.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(search.toLowerCase()) ||
-      item.sku.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      const matchesSearch =
+        item.name.toLowerCase().includes(search.toLowerCase()) ||
+        item.sku.toLowerCase().includes(search.toLowerCase());
+      const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+  }, [items, search, categoryFilter]);
 
   return (
     <div className="space-y-6">

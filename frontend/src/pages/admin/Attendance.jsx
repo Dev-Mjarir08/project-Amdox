@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { FiClock, FiSearch, FiUser } from "react-icons/fi";
 import PageHeader from "../../components/common/PageHeader.jsx";
 import { apiFetch } from "../../utils/api.js";
@@ -26,13 +26,15 @@ export default function Attendance() {
     loadLogs();
   }, []);
 
-  const filteredLogs = logs.filter((log) => {
-    const matchesSearch =
-      log.name.toLowerCase().includes(search.toLowerCase()) ||
-      log.department?.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "all" || log.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredLogs = useMemo(() => {
+    return logs.filter((log) => {
+      const matchesSearch =
+        log.name.toLowerCase().includes(search.toLowerCase()) ||
+        log.department?.toLowerCase().includes(search.toLowerCase());
+      const matchesStatus = statusFilter === "all" || log.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [logs, search, statusFilter]);
 
   return (
     <div className="space-y-6">

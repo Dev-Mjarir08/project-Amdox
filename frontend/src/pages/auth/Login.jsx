@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FiArrowRight, FiLock, FiMail } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -6,24 +6,28 @@ import { useAuth } from "../../context/AuthContext.jsx";
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("admin@amdox.com");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     try {
       setLoading(true);
       setError("");
-      const user = await login(email, password);
-      navigate(`/${user.role}/dashboard`);
+      const payload = await login(email, password);  
+      if (payload && payload.user) {
+        navigate(`/${payload.user.role}/dashboard`);
+      } else {
+        throw new Error("User data not found in response");
+      }
     } catch (err) {
       setError(err.message || "Invalid email or password");
     } finally {
       setLoading(false);
     }
-  };
+  }, [email, password, login, navigate]);
 
   return (
     <main className="min-h-screen bg-background px-4 py-10 dark:bg-slate-950">

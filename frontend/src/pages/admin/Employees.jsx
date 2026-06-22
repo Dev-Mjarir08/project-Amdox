@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { FiEdit2, FiMail, FiPhone, FiPlus, FiSearch, FiTrash2, FiUser, FiCalendar, FiDollarSign, FiBriefcase } from "react-icons/fi";
 import PageHeader from "../../components/common/PageHeader.jsx";
 import { apiFetch } from "../../utils/api.js";
@@ -134,14 +134,16 @@ export default function Employees() {
     }
   };
 
-  const filteredEmployees = employees.filter((emp) => {
-    const matchesSearch =
-      emp.name.toLowerCase().includes(search.toLowerCase()) ||
-      emp.email.toLowerCase().includes(search.toLowerCase()) ||
-      emp.title?.toLowerCase().includes(search.toLowerCase());
-    const matchesDept = deptFilter === "all" || emp.department === deptFilter;
-    return matchesSearch && matchesDept;
-  });
+  const filteredEmployees = useMemo(() => {
+    return employees.filter((emp) => {
+      const matchesSearch =
+        emp.name.toLowerCase().includes(search.toLowerCase()) ||
+        emp.email.toLowerCase().includes(search.toLowerCase()) ||
+        emp.title?.toLowerCase().includes(search.toLowerCase());
+      const matchesDept = deptFilter === "all" || emp.department === deptFilter;
+      return matchesSearch && matchesDept;
+    });
+  }, [employees, search, deptFilter]);
 
   const canManage = currentUser?.role === "admin" || currentUser?.role === "hr";
 

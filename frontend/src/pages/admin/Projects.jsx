@@ -30,10 +30,12 @@ export default function Projects() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const projData = await apiFetch("/api/projects");
+      const [projData, empData] = await Promise.all([
+        apiFetch("/api/projects"),
+        apiFetch("/api/employees")
+      ]);
       setProjects(projData);
-
-      const empData = await apiFetch("/api/employees");
+      
       const managerList = empData.filter((e) => e.role === "manager" || e.role === "admin");
       setManagers(managerList);
     } catch (err) {

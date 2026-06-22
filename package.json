@@ -5,7 +5,7 @@
   "scripts": {
     "install:all": "npm install && npm install --prefix frontend && npm install --prefix backend",
     "dev": "concurrently \"npm --prefix frontend run dev\" \"npm --prefix backend run dev\"",
-    "build": "npm --prefix frontend run build",
+    "build": "npm --prefix frontend run build && (mv frontend/dist ./dist || move frontend\\dist dist)",
     "start": "npm --prefix backend run start",
     "seed": "node backend/seed/seeder.js"
   },

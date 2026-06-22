@@ -1,11 +1,5 @@
 {
-  "experimentalServices": {
-    "frontend": {
-      "entrypoint": "frontend",
-      "routePrefix": "/",
-      "framework": "vite"
-    }
-  },
+  "cleanUrls": true,
   "rewrites": [
     {
       "source": "/(.*)",

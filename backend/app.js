@@ -59,23 +59,20 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests without Origin (Postman, server-to-server, etc.)
+      // Allow Postman / server-to-server requests
       if (!origin) {
         return callback(null, true);
       }
 
-      const isAllowed =
-        allowedOrigins.includes(origin) ||
-        origin.endsWith(".vercel.app") ||
-        origin.startsWith("http://localhost:");
-
-      if (isAllowed) {
+      if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      return callback(new Error("Not allowed by CORS"));
+      return callback(new Error(`Not allowed by CORS: ${origin}`));
     },
+
     credentials: true,
+
     methods: [
       "GET",
       "HEAD",
@@ -85,15 +82,16 @@ app.use(
       "PATCH",
       "OPTIONS",
     ],
+
     allowedHeaders: [
       "Origin",
       "X-Requested-With",
       "Content-Type",
       "Accept",
       "Authorization",
-      "Cookie",
     ],
-    optionsSuccessStatus: 200,
+
+    optionsSuccessStatus: 204,
   })
 );
 

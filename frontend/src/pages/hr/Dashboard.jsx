@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { FiCalendar, FiCreditCard, FiDownload, FiUserCheck, FiUsers } from "react-icons/fi";
 import AttendanceChart from "../../components/dashboard/AttendanceChart.jsx";
 import RecentEmployees from "../../components/dashboard/RecentEmployees.jsx";
@@ -6,7 +6,7 @@ import RecentTasks from "../../components/dashboard/RecentTasks.jsx";
 import StatCard from "../../components/dashboard/StatCard.jsx";
 import TaskChart from "../../components/dashboard/TaskChart.jsx";
 import PageHeader from "../../components/common/PageHeader.jsx";
-import { apiFetch } from "../../utils/api.js";
+import api from "../../lib/api.js";
 
 const iconMap = {
   attendance: FiUserCheck,
@@ -15,111 +15,48 @@ const iconMap = {
   payroll: FiCreditCard,
 };
 
-export default function HRDashboard() {
-  const [stats, setStats] = useState(null);
-  const [employees, setEmployees] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [attendance, setAttendance] = useState([]);
-  const [loading, setLoading] = useState(true);
+const staticStatCards = {
+  hr: [
+    { label: "Active Employees", value: "0", description: "Enrolled in payroll", icon: "employees" },
+    { label: "Today Attendance", value: "0%", description: "Staff checked in today", icon: "attendance" },
+    { label: "Pending Leaves", value: "0", description: "Requests needing review", icon: "leave" },
+    { label: "Payroll Run Status", value: "Draft", description: "Current monthly cycle status", icon: "payroll" }
+  ]
+};
 
-  const loadHRData = async () => {
-    try {
-      setLoading(true);
-      const [statsData, empData, taskData, attendanceData] = await Promise.all([
-        apiFetch("/api/dashboard/stats"),
-        apiFetch("/api/employees"),
-        apiFetch("/api/tasks"),
-        apiFetch("/api/attendance")
-      ]);
-      setStats(statsData);
-      setEmployees(empData);
-      setTasks(taskData);
-      setAttendance(attendanceData);
-    } catch (err) {
-      console.error("Failed to load HR dashboard data:", err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+export default function HRDashboard() {
+  const [cards, setCards] = useState(staticStatCards.hr);
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState(null);
 
   useEffect(() => {
-    loadHRData();
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get("/dashboard/stats");
+        if (res.data) {
+          setDashboardData(res.data);
+          if (Array.isArray(res.data.statCards)) {
+            const merged = staticStatCards.hr.map(staticCard => {
+              const dynamicCard = res.data.statCards.find(c => c.label === staticCard.label);
+              return dynamicCard ? { ...staticCard, value: dynamicCard.value } : staticCard;
+            });
+            setCards(merged);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load HR backend stats:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
   }, []);
-
-  // Format Stat Cards
-  const hrStatCards = useMemo(() => {
-    const totalEmployees = employees.length;
-    const presentCount = stats?.todayStats?.present || 0;
-    const leaveRequestsCount = stats?.todayStats?.leavesPending || 0;
-
-    return [
-      { label: "Total Employees", value: totalEmployees.toString(), change: "+8.4%", trend: "up", icon: "employees", tone: "blue" },
-      { label: "Present Today", value: presentCount.toString(), change: "+2.2%", trend: "up", icon: "attendance", tone: "emerald" },
-      { label: "Leave Requests", value: leaveRequestsCount.toString(), change: `+${leaveRequestsCount} new`, trend: "up", icon: "leave", tone: "amber" },
-      { label: "Payroll Ready", value: "96%", change: "+1.8%", trend: "up", icon: "payroll", tone: "cyan" },
-    ];
-  }, [employees, stats]);
-
-  // Format Task Chart
-  const taskChartData = useMemo(() => {
-    const totalTasks = tasks.length || 1;
-    const completedTasks = tasks.filter((t) => t.status === "completed").length;
-    const inProgressTasks = tasks.filter((t) => t.status === "in-progress").length;
-    const pendingTasks = tasks.filter((t) => t.status === "pending").length;
-    const blockedTasks = tasks.filter((t) => t.status === "blocked").length;
-
-    return [
-      { name: "Completed", value: Math.round((completedTasks / totalTasks) * 100) },
-      { name: "In Progress", value: Math.round((inProgressTasks / totalTasks) * 100) },
-      { name: "Pending", value: Math.round((pendingTasks / totalTasks) * 100) },
-      { name: "Blocked", value: Math.round((blockedTasks / totalTasks) * 100) },
-    ];
-  }, [tasks]);
-
-  // Format Recent Tasks
-  const recentTasksData = useMemo(() => {
-    return tasks.slice(0, 5).map((t) => ({
-      id: t.id ? t.id.substring(t.id.length - 8).toUpperCase() : "TASK",
-      title: t.title,
-      dueDate: t.due_date,
-      assignedTo: t.assignee_name,
-      priority: "Medium",
-      status: t.status === "in-progress" ? "In Progress" : t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : "Pending",
-    }));
-  }, [tasks]);
-
-  // Format Recent Employees
-  const recentEmployeesData = useMemo(() => {
-    return employees.slice(0, 5).map((e) => ({
-      id: e.employeeId || "EMP-SYSTEM",
-      name: e.name,
-      department: e.department,
-      role: e.title,
-      status: e.status === "active" ? "Active" : "On Leave",
-    }));
-  }, [employees]);
-
-  // Format Attendance Chart
-  const attendanceChartData = useMemo(() => {
-    return attendance.slice(0, 6).reverse().map((att) => ({
-      month: att.date ? att.date.substring(5) : "", // MM-DD
-      present: attendance.filter((a) => a.date === att.date && a.status === "present").length * 150 + 800,
-      remote: attendance.filter((a) => a.date === att.date && a.status === "remote").length * 80 + 150,
-    }));
-  }, [attendance]);
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background dark:bg-slate-950">
-        <p className="text-sm font-semibold text-slate-500 animate-pulse">Loading HR dashboard...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="HR Dashboard"
+        eyebrow="HR"
         title="People Operations"
         description="Track workforce availability, leave workload, payroll readiness, and employee activity."
         actions={
@@ -131,19 +68,19 @@ export default function HRDashboard() {
       />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {hrStatCards.map((card) => (
+        {cards.map((card) => (
           <StatCard key={card.label} {...card} icon={iconMap[card.icon]} />
         ))}
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.35fr_0.9fr]">
-        <AttendanceChart data={attendanceChartData.length ? attendanceChartData : undefined} />
-        <TaskChart data={taskChartData} />
+        <AttendanceChart data={dashboardData?.attendanceOverview} />
+        <TaskChart data={dashboardData?.taskCompletion} />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">
-        <RecentEmployees data={recentEmployeesData} />
-        <RecentTasks data={recentTasksData} />
+        <RecentEmployees data={dashboardData?.recentEmployees} />
+        <RecentTasks data={dashboardData?.recentTasks} />
       </section>
     </div>
   );

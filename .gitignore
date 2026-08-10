@@ -1,8 +1,19 @@
+# Root gitignore
 node_modules/
 dist/
+build/
 *.log
+
+# Environment files
 .env
 .env.*
-vite-dev.err.log
-vite-dev.log
-vite-dev.out.log
+
+# Uploads
+backend/uploads/
+uploads/
+
+# OS / Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { FiChevronLeft, FiChevronRight, FiX } from "react-icons/fi";
+import logo from "../../assets/logo.png";
 
 export default function Sidebar({
   isCollapsed,
@@ -9,36 +10,57 @@ export default function Sidebar({
   onToggleCollapse,
   roleLabel,
 }) {
+  // Define module category grouping
+  const getCategory = (label) => {
+    const l = label.toLowerCase();
+    if (l === "dashboard") return "MAIN";
+    if (["employees", "attendance", "leave management", "leave requests", "apply leave", "payroll", "team members", "recruitment", "performance", "training", "shifts", "holidays"].includes(l)) return "WORKFORCE";
+    if (["inventory", "vendors", "purchase orders", "assets"].includes(l)) return "OPERATIONS";
+    if (["general ledger", "accounts payable", "accounts receivable", "financial reports", "sales", "crm", "finance"].includes(l)) return "FINANCE";
+    if (["projects", "tasks", "my tasks"].includes(l)) return "PROJECT MANAGEMENT";
+    return "SYSTEM";
+  };
+
+  // Group items by category while preserving order
+  const categories = ["MAIN", "WORKFORCE", "OPERATIONS", "FINANCE", "PROJECT MANAGEMENT", "SYSTEM"];
+  const groupedItems = categories.map(cat => ({
+    category: cat,
+    items: items.filter(item => getCategory(item.label) === cat)
+  })).filter(group => group.items.length > 0);
+
   return (
     <>
+      {/* Mobile Backdrop */}
       <div
-        className={`fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-sm transition-opacity lg:hidden ${
+        className={`fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-xs transition-opacity lg:hidden ${
           isMobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
         onClick={onCloseMobile}
         aria-hidden="true"
       />
 
+      {/* Main Dark Navy Sidebar Container (#0F172A) */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-white/70 bg-white/88 shadow-soft backdrop-blur-xl transition-all duration-300 lg:translate-x-0 dark:border-slate-800/80 dark:bg-slate-950/90 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-slate-800 bg-[#0F172A] shadow-lg transition-all duration-300 lg:translate-x-0 ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         } ${isCollapsed ? "lg:w-20" : "lg:w-72"}`}
       >
-        <div className="flex h-16 items-center justify-between border-b border-slate-200/80 px-4 dark:border-slate-800">
+        {/* Sidebar Brand Header */}
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-800/80 px-4">
           <NavLink to="/" className="flex min-w-0 items-center gap-3" onClick={onCloseMobile}>
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-black text-white shadow-lg shadow-blue-600/20">
-              AX
-            </span>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary shadow-md shadow-blue-600/30">
+              <img src={logo} alt="AMDoxERP Logo" className="h-7 w-7 object-contain" />
+            </div>
             <span
               className={`min-w-0 transition-opacity duration-200 ${
                 isCollapsed ? "lg:hidden" : ""
               }`}
             >
-              <span className="block truncate text-sm font-extrabold text-slate-950 dark:text-white">
-                AMDOX ERP
+              <span className="block truncate text-sm font-black tracking-wide text-white">
+                AMDoxERP
               </span>
-              <span className="block truncate text-xs font-medium text-slate-500 dark:text-slate-400">
-                {roleLabel} Portal
+              <span className="block truncate text-[11px] font-semibold text-slate-400">
+                {roleLabel} Console
               </span>
             </span>
           </NavLink>
@@ -46,55 +68,79 @@ export default function Sidebar({
           <button
             type="button"
             onClick={onCloseMobile}
-            className="erp-focus inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 lg:hidden dark:hover:bg-slate-800 dark:hover:text-white"
-            aria-label="Close navigation"
+            className="erp-focus inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white lg:hidden"
+            aria-label="Close menu"
           >
             <FiX className="h-5 w-5" />
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
-          {items.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.label}
-                to={item.path}
-                onClick={onCloseMobile}
-                title={isCollapsed ? item.label : undefined}
-                className={({ isActive }) =>
-                  [
-                    "group flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition",
-                    isCollapsed ? "lg:justify-center" : "",
-                    isActive
-                      ? "bg-primary text-white shadow-lg shadow-blue-600/20"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white",
-                  ].join(" ")
-                }
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                <span className={`truncate ${isCollapsed ? "lg:hidden" : ""}`}>
-                  {item.label}
-                </span>
-              </NavLink>
-            );
-          })}
+        {/* Navigation Categories */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+          {groupedItems.map((group) => (
+            <div key={group.category} className="space-y-1">
+              {group.category !== "MAIN" && !isCollapsed && (
+                <div className="px-3 pb-1 pt-2">
+                  <span className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-500">
+                    {group.category}
+                  </span>
+                </div>
+              )}
+              {group.category !== "MAIN" && isCollapsed && (
+                <div className="my-2 border-t border-slate-800/60" />
+              )}
+
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.label}
+                    to={item.path}
+                    onClick={onCloseMobile}
+                    title={isCollapsed ? item.label : undefined}
+                    className={({ isActive }) =>
+                      [
+                        "group relative flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-150",
+                        isCollapsed ? "lg:justify-center lg:px-0" : "",
+                        isActive
+                          ? "bg-primary text-white font-bold shadow-sm"
+                          : "text-slate-300 hover:bg-slate-800/80 hover:text-white",
+                      ].join(" ")
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        {isActive && (
+                          <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-white lg:hidden" />
+                        )}
+                        <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-white" : "text-slate-400 group-hover:text-slate-200"}`} />
+                        <span className={`truncate ${isCollapsed ? "lg:hidden" : ""}`}>
+                          {item.label}
+                        </span>
+                      </>
+                    )}
+                  </NavLink>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
-        <div className="border-t border-slate-200/80 p-3 dark:border-slate-800">
+        {/* Footer Collapse Button */}
+        <div className="shrink-0 border-t border-slate-800/80 p-3">
           <button
             type="button"
             onClick={onToggleCollapse}
-            className="erp-focus hidden min-h-11 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 transition hover:border-primary/40 hover:text-primary lg:flex dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+            className="erp-focus hidden min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-800 bg-slate-900/90 px-3 text-xs font-semibold text-slate-300 transition hover:border-slate-700 hover:bg-slate-800 hover:text-white lg:flex"
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {isCollapsed ? (
-              <FiChevronRight className="h-5 w-5" />
+              <FiChevronRight className="h-4 w-4" />
             ) : (
               <>
-                <FiChevronLeft className="h-5 w-5" />
-                <span>Collapse</span>
+                <FiChevronLeft className="h-4 w-4" />
+                <span>Collapse Sidebar</span>
               </>
             )}
           </button>

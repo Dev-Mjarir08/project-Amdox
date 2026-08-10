@@ -1,300 +1,286 @@
-import { useEffect, useState, useMemo } from "react";
-import { FiEdit2, FiMail, FiPhone, FiPlus, FiSearch, FiTrash2, FiUser, FiCalendar, FiDollarSign, FiBriefcase } from "react-icons/fi";
-import PageHeader from "../../components/common/PageHeader.jsx";
-import { apiFetch } from "../../utils/api.js";
-import { useAuth } from "../../context/AuthContext.jsx";
+import { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
+import { FiUsers, FiDownload, FiFilter, FiPlus, FiSearch, FiEdit, FiTrash2, FiMail, FiPhone } from 'react-icons/fi';
+import PageHeader from '../../components/common/PageHeader.jsx';
+import AddEmployeeModal from '../../components/modals/AddEmployeeModal.jsx';
+import EditEmployeeModal from '../../components/modals/EditEmployeeModal.jsx';
+import ConfirmModal from '../../components/modals/ConfirmModal.jsx';
+import api from '../../lib/api.js';
+import { exportToCSV } from '../../lib/utils.js';
+import useAuthStore from '../../stores/useAuthStore.js';
 
 export default function Employees() {
-  const { user: currentUser } = useAuth();
   const [employees, setEmployees] = useState([]);
-  const [search, setSearch] = useState("");
-  const [deptFilter, setDeptFilter] = useState("all");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  // Modals state
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedEmp, setSelectedEmp] = useState(null);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
 
-  // Form states
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    role: "employee",
-    title: "",
-    department: "",
-    salary: "",
-    phone: "",
-    status: "active",
-  });
+  const currentUser = useAuthStore((state) => state.user);
+  const userRole = currentUser?.role?.toLowerCase() || 'admin';
+  const isHRorAdmin = userRole === 'hr' || userRole === 'admin';
 
-  const departments = ["Operations", "People Operations", "Delivery", "Finance", "General"];
+  useEffect(() => {
+    fetchEmployees();
+  }, [searchTerm, departmentFilter, statusFilter]);
 
-  const loadEmployees = async () => {
+  const fetchEmployees = async () => {
     try {
       setLoading(true);
-      const data = await apiFetch("/api/employees");
-      setEmployees(data);
-    } catch (err) {
-      setError(err.message);
+      const response = await api.get('/hr/employees', {
+        params: {
+          search: searchTerm,
+          department: departmentFilter,
+          status: statusFilter
+        }
+      });
+      if (response.data && Array.isArray(response.data)) {
+        setEmployees(response.data);
+      } else {
+        setEmployees([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch employees:', error);
+      setEmployees([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadEmployees();
-  }, []);
-
-  const handleOpenAddModal = () => {
-    setFormData({
-      name: "",
-      email: "",
-      password: "",
-      role: "employee",
-      title: "",
-      department: "Delivery",
-      salary: "4000",
-      phone: "",
-      status: "active",
-    });
-    setError("");
-    setIsAddModalOpen(true);
+  const handleAddEmployee = () => {
+    setIsModalOpen(true);
   };
 
-  const handleOpenEditModal = (emp) => {
-    setSelectedEmp(emp);
-    setFormData({
-      name: emp.name,
-      email: emp.email,
-      password: "", // blank unless changing
-      role: emp.role,
-      title: emp.title,
-      department: emp.department,
-      salary: emp.salary,
-      phone: emp.phone,
-      status: emp.status,
-    });
-    setError("");
-    setIsEditModalOpen(true);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteEmployee = (id) => {
+    setDeleteConfirmId(id);
   };
 
-  const handleAddEmployee = async (e) => {
-    e.preventDefault();
+  const confirmDeleteEmployee = async () => {
+    if (!deleteConfirmId) return;
+    setDeleting(true);
     try {
-      setError("");
-      await apiFetch("/api/employees", {
-        method: "POST",
-        body: JSON.stringify(formData),
-      });
-      setSuccess("Employee added successfully!");
-      setIsAddModalOpen(false);
-      loadEmployees();
-      setTimeout(() => setSuccess(""), 3000);
+      await api.delete(`/hr/employees/${deleteConfirmId}`);
+      toast.success("Employee record deleted successfully!");
+      fetchEmployees();
     } catch (err) {
-      setError(err.message);
+      console.error("Failed to delete employee:", err);
+      toast.error("Failed to delete employee: " + (err.response?.data?.message || err.message));
+    } finally {
+      setDeleting(false);
+      setDeleteConfirmId(null);
     }
   };
 
-  const handleEditEmployee = async (e) => {
-    e.preventDefault();
-    try {
-      setError("");
-      const payload = { ...formData };
-      if (!payload.password) delete payload.password; // don't send empty pwd
+  const filteredEmployees = employees; // Backend handles sorting/filtering now!
 
-      await apiFetch(`/api/employees/${selectedEmp.id}`, {
-        method: "PUT",
-        body: JSON.stringify(payload),
-      });
-      setSuccess("Employee updated successfully!");
-      setIsEditModalOpen(false);
-      loadEmployees();
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      setError(err.message);
-    }
+  const handleExport = () => {
+    exportToCSV(filteredEmployees, 'employees.csv');
   };
 
-  const handleDeleteEmployee = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this employee?")) return;
-    try {
-      setError("");
-      await apiFetch(`/api/employees/${id}`, {
-        method: "DELETE",
-      });
-      setSuccess("Employee deleted successfully!");
-      loadEmployees();
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      setError(err.message);
-    }
+  const getStatusBadge = (status) => {
+    const styles = {
+      active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+      inactive: 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400',
+      on_leave: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+      terminated: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+    };
+    return styles[status] || styles.active;
   };
-
-  const filteredEmployees = useMemo(() => {
-    return employees.filter((emp) => {
-      const matchesSearch =
-        emp.name.toLowerCase().includes(search.toLowerCase()) ||
-        emp.email.toLowerCase().includes(search.toLowerCase()) ||
-        emp.title?.toLowerCase().includes(search.toLowerCase());
-      const matchesDept = deptFilter === "all" || emp.department === deptFilter;
-      return matchesSearch && matchesDept;
-    });
-  }, [employees, search, deptFilter]);
-
-  const canManage = currentUser?.role === "admin" || currentUser?.role === "hr";
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Enterprise Directory"
-        title="Employees Directory"
-        description="Search, view, and manage all workers, roles, status, and salary information."
+        eyebrow="HR"
+        title="Employees"
+        description="Manage employee records, contracts, and organizational structure"
         actions={
-          canManage && (
-            <button
-              onClick={handleOpenAddModal}
-              className="erp-focus inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
-            >
-              <FiPlus className="h-4 w-4" />
-              Add Employee
-            </button>
+          isHRorAdmin && (
+            <div className="flex gap-2">
+              <button onClick={handleAddEmployee} className="erp-focus inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700">
+                <FiPlus className="h-4 w-4" />
+                Add Employee
+              </button>
+            </div>
           )
         }
       />
 
-      {success && (
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700 dark:border-green-900/30 dark:bg-green-950/20 dark:text-green-400">
-          {success}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border border-white/70 bg-white/85 p-6 shadow-soft backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Total Employees</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">{employees.length}</p>
+            </div>
+            <div className="rounded-xl bg-blue-100 p-3 dark:bg-blue-900/30">
+              <FiUsers className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            </div>
+          </div>
         </div>
-      )}
-
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400">
-          {error}
+        <div className="rounded-xl border border-white/70 bg-white/85 p-6 shadow-soft backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Active</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                {employees.filter(e => e.status === 'active').length}
+              </p>
+            </div>
+            <div className="rounded-xl bg-emerald-100 p-3 dark:bg-emerald-900/30">
+              <FiUsers className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+            </div>
+          </div>
         </div>
-      )}
-
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative max-w-md flex-1">
-          <FiSearch className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, email, title..."
-            className="erp-focus h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-800 transition placeholder:text-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-          />
+        <div className="rounded-xl border border-white/70 bg-white/85 p-6 shadow-soft backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">On Leave</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                {employees.filter(e => e.status === 'on_leave').length}
+              </p>
+            </div>
+            <div className="rounded-xl bg-amber-100 p-3 dark:bg-amber-900/30">
+              <FiUsers className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+            </div>
+          </div>
         </div>
-
-        <select
-          value={deptFilter}
-          onChange={(e) => setDeptFilter(e.target.value)}
-          className="erp-focus h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-        >
-          <option value="all">All Departments</option>
-          {departments.map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
+        <div className="rounded-xl border border-white/70 bg-white/85 p-6 shadow-soft backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Inactive</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                {employees.filter(e => e.status === 'inactive').length}
+              </p>
+            </div>
+            <div className="rounded-xl bg-cyan-100 p-3 dark:bg-cyan-900/30">
+              <FiUsers className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Directory Table */}
-      {loading ? (
-        <div className="erp-panel flex h-60 items-center justify-center rounded-xl">
-          <p className="text-sm font-semibold text-slate-500">Loading Directory...</p>
+      <div className="rounded-xl border border-white/70 bg-white/85 p-6 shadow-soft backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+        <div className="mb-6 flex flex-wrap gap-4">
+          <div className="flex-1 min-w-[200px]">
+            <div className="relative">
+              <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search employees..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="erp-focus h-11 w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-10 pr-4 text-sm dark:border-slate-800 dark:bg-slate-900/80"
+              />
+            </div>
+          </div>
+          <select 
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+            className="erp-focus h-11 rounded-xl border border-slate-200 bg-slate-50/80 px-4 text-sm dark:border-slate-800 dark:bg-slate-900/80"
+          >
+            <option value="all">All Departments</option>
+            <option value="Engineering">Engineering</option>
+            <option value="Sales">Sales</option>
+            <option value="Marketing">Marketing</option>
+            <option value="HR">HR</option>
+            <option value="Finance">Finance</option>
+          </select>
+          <select 
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="erp-focus h-11 rounded-xl border border-slate-200 bg-slate-50/80 px-4 text-sm dark:border-slate-800 dark:bg-slate-900/80"
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="on_leave">On Leave</option>
+            <option value="terminated">Terminated</option>
+          </select>
+          <button onClick={handleExport} className="erp-focus inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-primary/40 hover:text-primary dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+            <FiDownload className="h-4 w-4" />
+            Export
+          </button>
         </div>
-      ) : (
-        <div className="erp-panel overflow-hidden rounded-xl">
+
+        {loading ? (
+          <div className="flex h-64 items-center justify-center">
+            <div className="text-sm text-slate-500">Loading employees...</div>
+          </div>
+        ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50 text-xs font-bold uppercase tracking-wider text-slate-400 dark:border-slate-800 dark:bg-slate-950/20">
-                  <th className="px-6 py-4">Employee</th>
-                  <th className="px-6 py-4">Department & Role</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Salary</th>
-                  <th className="px-6 py-4">Join Date</th>
-                  {canManage && <th className="px-6 py-4 text-right">Actions</th>}
+                <tr className="border-b border-slate-200 dark:border-slate-800">
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Employee</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Department</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Role</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Contact</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Join Date</th>
+                  <th className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-200">Status</th>
+                  {isHRorAdmin && <th className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-200">Actions</th>}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody>
                 {filteredEmployees.length === 0 ? (
                   <tr>
-                    <td colSpan={canManage ? 6 : 5} className="px-6 py-10 text-center text-sm text-slate-400">
-                      No employees found matching the filters.
+                    <td colSpan={isHRorAdmin ? 7 : 6} className="px-4 py-12 text-center text-slate-500">
+                      No employees found
                     </td>
                   </tr>
                 ) : (
-                  filteredEmployees.map((emp) => (
-                    <tr key={emp.id} className="hover:bg-slate-50/30 dark:hover:bg-slate-900/20">
-                      <td className="px-6 py-4">
+                  filteredEmployees.map((employee) => (
+                    <tr key={employee.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                      <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-bold text-primary dark:bg-primary/20">
-                            {emp.initials}
-                          </span>
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
+                            {employee.initials}
+                          </div>
                           <div>
-                            <span className="block text-sm font-bold text-slate-900 dark:text-white">
-                              {emp.name} {emp.id === currentUser?.id && <span className="text-xs text-primary font-normal">(You)</span>}
-                            </span>
-                            <span className="flex items-center gap-1 text-xs text-slate-400">
-                              <FiMail className="h-3 w-3" />
-                              {emp.email}
-                            </span>
+                            <p className="font-medium text-slate-900 dark:text-slate-100">{employee.name}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{employee.employeeId}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="block text-sm font-semibold text-slate-800 dark:text-slate-200">
-                          {emp.title || "Staff"}
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{employee.department}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{employee.role}</td>
+                      <td className="px-4 py-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                            <FiMail className="h-3 w-3" />
+                            <span className="text-xs">{employee.email}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                            <FiPhone className="h-3 w-3" />
+                            <span className="text-xs">{employee.phone}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{employee.joinDate}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadge(employee.status)}`}>
+                          {employee.status}
                         </span>
-                        <span className="block text-xs text-slate-400">
-                          {emp.department || "General"} ({emp.role})
-                        </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            emp.status === "active"
-                              ? "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400"
-                              : "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
-                          }`}
-                        >
-                          <span className={`h-1.5 w-1.5 rounded-full ${emp.status === "active" ? "bg-green-500" : "bg-red-500"}`} />
-                          {emp.status === "active" ? "Active" : "Suspended"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-semibold text-slate-800 dark:text-slate-200">
-                        ${emp.salary?.toLocaleString() || "0"}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
-                        {emp.join_date}
-                      </td>
-                      {canManage && (
-                        <td className="px-6 py-4 text-right">
-                          <div className="inline-flex gap-2">
+                      {isHRorAdmin && (
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-2">
                             <button
-                              onClick={() => handleOpenEditModal(emp)}
-                              className="erp-focus rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-white"
-                              title="Edit Employee"
+                              onClick={() => {
+                                setSelectedEmployee(employee);
+                                setIsEditModalOpen(true);
+                              }}
+                              className="erp-focus inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-blue-600 shadow-sm transition hover:border-blue-400 hover:text-blue-600 dark:border-slate-800 dark:bg-slate-900 dark:text-blue-400"
                             >
-                              <FiEdit2 className="h-4 w-4" />
+                              <FiEdit className="h-4 w-4" />
                             </button>
-                            {emp.id !== currentUser?.id && (
-                              <button
-                                onClick={() => handleDeleteEmployee(emp.id)}
-                                className="erp-focus rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
-                                title="Delete Employee"
-                              >
-                                <FiTrash2 className="h-4 w-4" />
-                              </button>
-                            )}
+                            <button onClick={() => handleDeleteEmployee(employee.id)} className="erp-focus inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-rose-600 shadow-sm transition hover:border-rose-400 hover:text-rose-600 dark:border-slate-800 dark:bg-slate-900 dark:text-rose-400">
+                              <FiTrash2 className="h-4 w-4" />
+                            </button>
                           </div>
                         </td>
                       )}
@@ -304,272 +290,40 @@ export default function Employees() {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Add Employee Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
-            <div className="border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Add New Employee</h3>
-            </div>
-            <form onSubmit={handleAddEmployee} className="p-6 space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Full Name</span>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
+      <AddEmployeeModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={() => {
+          fetchEmployees();
+          setIsModalOpen(false);
+        }}
+      />
 
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Email Address</span>
-                  <input
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
+      <EditEmployeeModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedEmployee(null);
+        }}
+        onSuccess={() => {
+          fetchEmployees();
+          setIsEditModalOpen(false);
+          setSelectedEmployee(null);
+        }}
+        employeeData={selectedEmployee}
+      />
 
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Password</span>
-                  <input
-                    type="password"
-                    required
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Job Title</span>
-                  <input
-                    type="text"
-                    required
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="e.g. Frontend Engineer"
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Role</span>
-                  <select
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  >
-                    <option value="employee">Employee</option>
-                    <option value="manager">Manager</option>
-                    <option value="hr">HR Specialist</option>
-                    <option value="admin">Administrator</option>
-                  </select>
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Department</span>
-                  <select
-                    value={formData.department}
-                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  >
-                    {departments.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Salary ($ / Month)</span>
-                  <input
-                    type="number"
-                    required
-                    value={formData.salary}
-                    onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Phone Number</span>
-                  <input
-                    type="text"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="e.g. +1 (555) 000-0000"
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
-              </div>
-
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="erp-focus h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="erp-focus h-11 rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
-                >
-                  Add Employee
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Employee Modal */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
-            <div className="border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Edit Employee Details</h3>
-            </div>
-            <form onSubmit={handleEditEmployee} className="p-6 space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Full Name</span>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Email Address</span>
-                  <input
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Password (leave blank to keep)</span>
-                  <input
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Job Title</span>
-                  <input
-                    type="text"
-                    required
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Role</span>
-                  <select
-                    value={formData.role}
-                    disabled={selectedEmp?.id === currentUser?.id}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm disabled:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  >
-                    <option value="employee">Employee</option>
-                    <option value="manager">Manager</option>
-                    <option value="hr">HR Specialist</option>
-                    <option value="admin">Administrator</option>
-                  </select>
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Department</span>
-                  <select
-                    value={formData.department}
-                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  >
-                    {departments.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Salary ($ / Month)</span>
-                  <input
-                    type="number"
-                    required
-                    disabled={currentUser?.role !== "admin" && currentUser?.role !== "hr"}
-                    value={formData.salary}
-                    onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm disabled:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Phone Number</span>
-                  <input
-                    type="text"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
-
-                <label className="block sm:col-span-2">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Status</span>
-                  <select
-                    value={formData.status}
-                    disabled={selectedEmp?.id === currentUser?.id}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm disabled:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Suspended</option>
-                  </select>
-                </label>
-              </div>
-
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="erp-focus h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="erp-focus h-11 rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={Boolean(deleteConfirmId)}
+        onClose={() => setDeleteConfirmId(null)}
+        onConfirm={confirmDeleteEmployee}
+        loading={deleting}
+        title="Delete Employee Record"
+        message="Are you sure you want to delete this employee from the system? This action cannot be undone."
+      />
     </div>
   );
 }

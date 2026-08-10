@@ -1,457 +1,300 @@
-import { useEffect, useState } from "react";
-import { FiPlus, FiBriefcase, FiUser, FiTrendingUp, FiSettings, FiEdit2, FiTrash2, FiInfo } from "react-icons/fi";
-import PageHeader from "../../components/common/PageHeader.jsx";
-import { apiFetch } from "../../utils/api.js";
-import { useAuth } from "../../context/AuthContext.jsx";
+import { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
+import { FiBriefcase, FiDownload, FiFilter, FiPlus, FiSearch, FiEdit, FiTrash2, FiCalendar, FiDollarSign } from 'react-icons/fi';
+import PageHeader from '../../components/common/PageHeader.jsx';
+import CreateProjectModal from '../../components/modals/CreateProjectModal.jsx';
+import ConfirmModal from '../../components/modals/ConfirmModal.jsx';
+import api from '../../lib/api.js';
+import { exportToCSV } from '../../lib/utils.js';
 
 export default function Projects() {
-  const { user: currentUser } = useAuth();
   const [projects, setProjects] = useState([]);
-  const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchText, setSearchText] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-  // Modals state
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedProj, setSelectedProj] = useState(null);
+  useEffect(() => {
+    fetchProjects();
+  }, [statusFilter]);
 
-  // Form states
-  const [formData, setFormData] = useState({
-    name: "",
-    manager_id: "",
-    progress: 0,
-    status: "Active",
-    budget: "",
-    description: "",
-  });
-
-  const loadData = async () => {
+  const fetchProjects = async () => {
     try {
       setLoading(true);
-      const [projData, empData] = await Promise.all([
-        apiFetch("/api/projects"),
-        apiFetch("/api/employees")
-      ]);
-      setProjects(projData);
-      
-      const managerList = empData.filter((e) => e.role === "manager" || e.role === "admin");
-      setManagers(managerList);
-    } catch (err) {
-      setError(err.message);
+      const response = await api.get('/projects', {
+        params: { status: statusFilter }
+      });
+      if (response.data && Array.isArray(response.data)) {
+        setProjects(response.data);
+      } else {
+        setProjects([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch projects:', error);
+      setProjects([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const handleOpenAddModal = () => {
-    setFormData({
-      name: "",
-      manager_id: managers[0]?.id || "",
-      progress: 0,
-      status: "Active",
-      budget: "50000",
-      description: "",
-    });
-    setError("");
-    setIsAddModalOpen(true);
+  const handleNewProject = () => {
+    setIsModalOpen(true);
   };
 
-  const handleOpenEditModal = (proj) => {
-    setSelectedProj(proj);
-    setFormData({
-      name: proj.name,
-      manager_id: proj.manager_id || "",
-      progress: proj.progress,
-      status: proj.status,
-      budget: proj.budget,
-      description: proj.description || "",
-    });
-    setError("");
-    setIsEditModalOpen(true);
+  const handleDeleteProject = (id) => {
+    setDeleteConfirmId(id);
   };
 
-  const handleAddProject = async (e) => {
-    e.preventDefault();
+  const confirmDeleteProject = async () => {
+    if (!deleteConfirmId) return;
+    setDeleting(true);
     try {
-      setError("");
-      await apiFetch("/api/projects", {
-        method: "POST",
-        body: JSON.stringify(formData),
-      });
-      setSuccess("Project created successfully!");
-      setIsAddModalOpen(false);
-      loadData();
-      setTimeout(() => setSuccess(""), 3000);
+      await api.delete(`/projects/${deleteConfirmId}`);
+      toast.success("Project deleted successfully!");
+      fetchProjects();
     } catch (err) {
-      setError(err.message);
+      console.error("Failed to delete project:", err);
+      toast.error("Failed to delete project: " + (err.response?.data?.message || err.message));
+    } finally {
+      setDeleting(false);
+      setDeleteConfirmId(null);
     }
   };
 
-  const handleEditProject = async (e) => {
-    e.preventDefault();
-    try {
-      setError("");
-      await apiFetch(`/api/projects/${selectedProj.id}`, {
-        method: "PUT",
-        body: JSON.stringify(formData),
-      });
-      setSuccess("Project updated successfully!");
-      setIsEditModalOpen(false);
-      loadData();
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      setError(err.message);
-    }
+  const filteredProjects = projects.filter(project => {
+    const matchesSearch = (project.name && project.name.toLowerCase().includes(searchText.toLowerCase())) ||
+                          (project.code && project.code.toLowerCase().includes(searchText.toLowerCase())) ||
+                          (project.manager_name && project.manager_name.toLowerCase().includes(searchText.toLowerCase())) ||
+                          (project.client && project.client.toLowerCase().includes(searchText.toLowerCase()));
+    const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const handleExport = () => {
+    exportToCSV(filteredProjects, 'projects.csv');
   };
 
-  const handleDeleteProject = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this project?")) return;
-    try {
-      setError("");
-      await apiFetch(`/api/projects/${id}`, {
-        method: "DELETE",
-      });
-      setSuccess("Project deleted successfully!");
-      loadData();
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      setError(err.message);
-    }
+  const getStatusBadge = (status) => {
+    const styles = {
+      planning: 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400',
+      active: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+      on_hold: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+      completed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+      cancelled: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+    };
+    return styles[status] || styles.planning;
   };
 
-  const canManage = currentUser?.role === "admin" || currentUser?.role === "manager";
-  const isAdmin = currentUser?.role === "admin";
+  const getProgressColor = (progress) => {
+    if (progress >= 80) return 'bg-emerald-500';
+    if (progress >= 50) return 'bg-blue-500';
+    if (progress >= 25) return 'bg-amber-500';
+    return 'bg-rose-500';
+  };
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Delivery Portfolio"
-        title="Projects Workspace"
-        description="Monitor active enterprise deliveries, assign leads, adjust progress percentages, and manage budgets."
+        eyebrow="Projects"
+        title="Projects"
+        description="Manage projects, milestones, resources, and budgets"
         actions={
-          canManage && (
-            <button
-              onClick={handleOpenAddModal}
-              className="erp-focus inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
-            >
+          <div className="flex gap-2">
+            <button onClick={handleNewProject} className="erp-focus inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700">
               <FiPlus className="h-4 w-4" />
               New Project
             </button>
-          )
+          </div>
         }
       />
 
-      {success && (
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700 dark:border-green-900/30 dark:bg-green-950/20 dark:text-green-400">
-          {success}
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400">
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="erp-panel flex h-60 items-center justify-center rounded-xl">
-          <p className="text-sm font-semibold text-slate-500">Loading Projects...</p>
-        </div>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {projects.length === 0 ? (
-            <div className="erp-panel col-span-full py-12 text-center text-sm text-slate-400">
-              No projects created yet.
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border border-white/70 bg-white/85 p-6 shadow-soft backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Total Projects</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">{projects.length}</p>
             </div>
-          ) : (
-            projects.map((proj) => (
-              <article key={proj.id} className="erp-panel rounded-xl p-5 flex flex-col justify-between hover:shadow-lg transition-shadow">
-                <div>
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary dark:bg-primary/20">
-                      <FiBriefcase className="h-5 w-5" />
-                    </span>
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                        proj.status === "Completed"
-                          ? "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400"
-                          : proj.status === "Blocked"
-                          ? "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
-                          : proj.status === "Planning"
-                          ? "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
-                          : "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400"
-                      }`}
-                    >
-                      {proj.status}
-                    </span>
-                  </div>
-
-                  <h3 className="mt-4 text-base font-bold text-slate-950 dark:text-white">{proj.name}</h3>
-                  <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400 min-h-10 line-clamp-2">
-                    {proj.description || "No description provided."}
-                  </p>
-                </div>
-
-                <div className="mt-6 space-y-4">
-                  {/* Progress bar */}
-                  <div>
-                    <div className="flex justify-between text-xs font-semibold mb-1">
-                      <span className="text-slate-400">Delivery Status</span>
-                      <span className="text-slate-900 dark:text-white">{proj.progress}%</span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800">
-                      <div
-                        className="h-2 rounded-full bg-primary"
-                        style={{ width: `${proj.progress}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Metadata info */}
-                  <div className="flex justify-between text-xs border-t border-slate-100 pt-3 dark:border-slate-800">
-                    <div className="flex flex-col">
-                      <span className="text-slate-400">Budget</span>
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        ${proj.budget?.toLocaleString() || "0"}
-                      </span>
-                    </div>
-                    <div className="flex flex-col text-right">
-                      <span className="text-slate-400">Project Manager</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {proj.manager_name || "Unassigned"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Action buttons */}
-                  {canManage && (
-                    <div className="flex justify-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
-                      <button
-                        onClick={() => handleOpenEditModal(proj)}
-                        className="erp-focus inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-650 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-350 dark:hover:bg-slate-800"
-                      >
-                        <FiEdit2 className="h-3 w-3" />
-                        Edit
-                      </button>
-                      {isAdmin && (
-                        <button
-                          onClick={() => handleDeleteProject(proj.id)}
-                          className="erp-focus inline-flex h-8 items-center gap-1 rounded-lg bg-red-50 px-2.5 text-xs font-bold text-red-650 transition hover:bg-red-100 dark:bg-red-950/20 dark:text-red-400"
-                        >
-                          <FiTrash2 className="h-3 w-3" />
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </article>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Add Project Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
-            <div className="border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Create Project</h3>
+            <div className="rounded-xl bg-blue-100 p-3 dark:bg-blue-900/30">
+              <FiBriefcase className="h-6 w-6 text-blue-600 dark:text-blue-400" />
             </div>
-            <form onSubmit={handleAddProject} className="p-6 space-y-4">
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Project Name</span>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Project Lead (Manager)</span>
-                <select
-                  value={formData.manager_id}
-                  onChange={(e) => setFormData({ ...formData, manager_id: e.target.value })}
-                  className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                >
-                  <option value="">Unassigned</option>
-                  {managers.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} ({m.title})
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="grid grid-cols-2 gap-4">
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Budget ($)</span>
-                  <input
-                    type="number"
-                    required
-                    value={formData.budget}
-                    onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Status</span>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  >
-                    <option value="Planning">Planning</option>
-                    <option value="Active">Active</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Blocked">Blocked</option>
-                  </select>
-                </label>
-              </div>
-
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Description</span>
-                <textarea
-                  rows={3}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white p-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                />
-              </label>
-
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="erp-focus h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="erp-focus h-11 rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
-                >
-                  Create
-                </button>
-              </div>
-            </form>
           </div>
         </div>
-      )}
-
-      {/* Edit Project Modal */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
-            <div className="border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Edit Project Settings</h3>
+        <div className="rounded-xl border border-white/70 bg-white/85 p-6 shadow-soft backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Active</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                {projects.filter(p => p.status === 'active').length}
+              </p>
             </div>
-            <form onSubmit={handleEditProject} className="p-6 space-y-4">
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Project Name</span>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Project Lead (Manager)</span>
-                <select
-                  value={formData.manager_id}
-                  onChange={(e) => setFormData({ ...formData, manager_id: e.target.value })}
-                  className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                >
-                  <option value="">Unassigned</option>
-                  {managers.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} ({m.title})
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="grid grid-cols-2 gap-4">
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Budget ($)</span>
-                  <input
-                    type="number"
-                    required
-                    value={formData.budget}
-                    onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Status</span>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  >
-                    <option value="Planning">Planning</option>
-                    <option value="Active">Active</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Blocked">Blocked</option>
-                  </select>
-                </label>
-              </div>
-
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Delivery Progress ({formData.progress}%)</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={formData.progress}
-                  onChange={(e) => setFormData({ ...formData, progress: parseInt(e.target.value) })}
-                  className="mt-3 w-full accent-primary bg-slate-100 rounded-lg appearance-none h-2 dark:bg-slate-800"
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Description</span>
-                <textarea
-                  rows={3}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white p-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                />
-              </label>
-
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="erp-focus h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="erp-focus h-11 rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
+            <div className="rounded-xl bg-emerald-100 p-3 dark:bg-emerald-900/30">
+              <FiBriefcase className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+            </div>
           </div>
         </div>
-      )}
+        <div className="rounded-xl border border-white/70 bg-white/85 p-6 shadow-soft backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">On Hold</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                {projects.filter(p => p.status === 'on_hold').length}
+              </p>
+            </div>
+            <div className="rounded-xl bg-amber-100 p-3 dark:bg-amber-900/30">
+              <FiBriefcase className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-white/70 bg-white/85 p-6 shadow-soft backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Completed</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                {projects.filter(p => p.status === 'completed').length}
+              </p>
+            </div>
+            <div className="rounded-xl bg-cyan-100 p-3 dark:bg-cyan-900/30">
+              <FiBriefcase className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-white/70 bg-white/85 p-6 shadow-soft backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+        <div className="mb-6 flex flex-wrap gap-4">
+          <div className="flex-1 min-w-[200px]">
+            <div className="relative">
+              <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search projects..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                className="erp-focus h-11 w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-10 pr-4 text-sm dark:border-slate-800 dark:bg-slate-900/80"
+              />
+            </div>
+          </div>
+          <select 
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="erp-focus h-11 rounded-xl border border-slate-200 bg-slate-50/80 px-4 text-sm dark:border-slate-800 dark:bg-slate-900/80"
+          >
+            <option value="all">All Status</option>
+            <option value="planning">Planning</option>
+            <option value="active">Active</option>
+            <option value="on_hold">On Hold</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <button onClick={handleExport} className="erp-focus inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-primary/40 hover:text-primary dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+            <FiDownload className="h-4 w-4" />
+            Export
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex h-64 items-center justify-center">
+            <div className="text-sm text-slate-500">Loading projects...</div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800">
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Project</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Client</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Manager</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Timeline</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Budget</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Progress</th>
+                  <th className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-200">Status</th>
+                  <th className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-200">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProjects.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="px-4 py-12 text-center text-slate-500">
+                       No projects found
+                    </td>
+                  </tr>
+                ) : (
+                  filteredProjects.map((project) => (
+                    <tr key={project.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="font-medium text-slate-900 dark:text-slate-100">{project.name}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">{project.code}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{project.client || "Internal"}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{project.manager_name || "Unassigned"}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                          <FiCalendar className="h-3 w-3" />
+                          <span className="text-xs">{project.timeline}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                          <FiDollarSign className="h-3 w-3" />
+                          <span className="text-xs">₹{project.budget.toLocaleString()}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="w-32">
+                          <div className="mb-1 flex items-center justify-between text-xs">
+                            <span className="text-slate-600 dark:text-slate-300">{project.progress}%</span>
+                          </div>
+                          <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-800">
+                            <div 
+                              className={`h-2 rounded-full ${getProgressColor(project.progress)}`}
+                              style={{ width: `${project.progress}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadge(project.status)}`}>
+                          {project.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button onClick={() => handleDeleteProject(project.id)} className="erp-focus inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-rose-600 shadow-sm transition hover:border-rose-400 hover:text-rose-600 dark:border-slate-800 dark:bg-slate-900 dark:text-rose-400">
+                            <FiTrash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <CreateProjectModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={() => {
+          fetchProjects();
+          setIsModalOpen(false);
+        }}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(deleteConfirmId)}
+        onClose={() => setDeleteConfirmId(null)}
+        onConfirm={confirmDeleteProject}
+        loading={deleting}
+        title="Delete Project"
+        message="Are you sure you want to delete this project? This action cannot be undone."
+      />
     </div>
   );
 }

@@ -1,5 +1,15 @@
-import { useEffect, useState, useMemo } from "react";
-import { FiBriefcase, FiCheckSquare, FiDownload, FiPackage, FiUsers } from "react-icons/fi";
+import { useState, useEffect } from "react";
+import {
+  FiBriefcase,
+  FiCheckSquare,
+  FiDownload,
+  FiPackage,
+  FiUsers,
+  FiDollarSign,
+  FiCreditCard,
+  FiUserCheck,
+  FiShoppingCart,
+} from "react-icons/fi";
 import AttendanceChart from "../../components/dashboard/AttendanceChart.jsx";
 import ProjectChart from "../../components/dashboard/ProjectChart.jsx";
 import RecentEmployees from "../../components/dashboard/RecentEmployees.jsx";
@@ -7,115 +17,70 @@ import RecentTasks from "../../components/dashboard/RecentTasks.jsx";
 import StatCard from "../../components/dashboard/StatCard.jsx";
 import TaskChart from "../../components/dashboard/TaskChart.jsx";
 import PageHeader from "../../components/common/PageHeader.jsx";
-import { apiFetch } from "../../utils/api.js";
+import RunForecastModal from "../../components/modals/RunForecastModal.jsx";
+import api from "../../lib/api.js";
+
+// new dashboard widgets (scaffolded)
+import AIForecast from "../../components/dashboard/AIForecast.jsx";
+import FinanceOverview from "../../components/dashboard/FinanceOverview.jsx";
+import InventoryIntelligence from "../../components/dashboard/InventoryIntelligence.jsx";
+import EmployeeAnalytics from "../../components/dashboard/EmployeeAnalytics.jsx";
+import RecentActivities from "../../components/dashboard/RecentActivities.jsx";
+import PendingApprovals from "../../components/dashboard/PendingApprovals.jsx";
+import NotificationsPanel from "../../components/dashboard/NotificationsPanel.jsx";
+import QuickActions from "../../components/dashboard/QuickActions.jsx";
+import SystemStatus from "../../components/dashboard/SystemStatus.jsx";
 
 const iconMap = {
   employees: FiUsers,
   inventory: FiPackage,
   projects: FiBriefcase,
   tasks: FiCheckSquare,
+  revenue: FiDollarSign,
+  expenses: FiCreditCard,
+  payroll: FiUserCheck,
+  purchaseOrders: FiShoppingCart,
+};
+
+const staticStatCards = {
+  admin: [
+    { label: "Total Employees", value: "0", description: "Active users in system", icon: "employees" },
+    { label: "Active Projects", value: "0", description: "Deliveries in progress", icon: "projects" },
+    { label: "Tasks Completed", value: "0", description: "Operational tasks done", icon: "tasks" },
+    { label: "Inventory Value", value: "₹0", description: "Current inventory valuation", icon: "inventory" }
+  ]
 };
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState(null);
-  const [employees, setEmployees] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [attendance, setAttendance] = useState([]);
+  const [isForecastModalOpen, setIsForecastModalOpen] = useState(false);
+  const [cards, setCards] = useState(staticStatCards.admin);
   const [loading, setLoading] = useState(true);
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      
-      const [statsData, empData, taskData, projData, attendanceData] = await Promise.all([
-        apiFetch("/api/dashboard/stats"),
-        apiFetch("/api/employees"),
-        apiFetch("/api/tasks"),
-        apiFetch("/api/projects"),
-        apiFetch("/api/attendance")
-      ]);
-
-      setStats(statsData);
-      setEmployees(empData);
-      setTasks(taskData);
-      setProjects(projData);
-      setAttendance(attendanceData);
-    } catch (err) {
-      console.error("Error loading dashboard data:", err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [dashboardData, setDashboardData] = useState(null);
 
   useEffect(() => {
-    loadDashboardData();
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get("/dashboard/stats");
+        if (res.data) {
+          setDashboardData(res.data);
+          if (Array.isArray(res.data.statCards)) {
+            // Merge dynamic values with the static configurations to keep descriptions/toggles aligned
+            const merged = staticStatCards.admin.map(staticCard => {
+              const dynamicCard = res.data.statCards.find(c => c.label === staticCard.label);
+              return dynamicCard ? { ...staticCard, value: dynamicCard.value } : staticCard;
+            });
+            setCards(merged);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load backend stats:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
   }, []);
-
-  // Format Project Chart Data
-  const projectChartData = useMemo(() => {
-    return projects.map((p) => ({
-      name: p.name ? p.name.split(" ")[0] : "Project", // abbreviation
-      progress: p.progress,
-    }));
-  }, [projects]);
-
-  // Format Task Chart Data
-  const taskChartData = useMemo(() => {
-    const totalTasks = tasks.length || 1;
-    const completedTasks = tasks.filter((t) => t.status === "completed").length;
-    const inProgressTasks = tasks.filter((t) => t.status === "in-progress").length;
-    const pendingTasks = tasks.filter((t) => t.status === "pending").length;
-    const blockedTasks = tasks.filter((t) => t.status === "blocked").length;
-
-    return [
-      { name: "Completed", value: Math.round((completedTasks / totalTasks) * 100) },
-      { name: "In Progress", value: Math.round((inProgressTasks / totalTasks) * 100) },
-      { name: "Pending", value: Math.round((pendingTasks / totalTasks) * 100) },
-      { name: "Blocked", value: Math.round((blockedTasks / totalTasks) * 100) },
-    ];
-  }, [tasks]);
-
-  // Format Recent Tasks Data
-  const recentTasksData = useMemo(() => {
-    return tasks.slice(0, 5).map((t) => ({
-      id: t.id ? t.id.substring(t.id.length - 8).toUpperCase() : "TASK", // format ID nicely
-      title: t.title,
-      dueDate: t.due_date,
-      assignedTo: t.assignee_name,
-      priority: "Medium",
-      status: t.status === "in-progress" ? "In Progress" : t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : "Pending",
-    }));
-  }, [tasks]);
-
-  // Format Recent Employees Data
-  const recentEmployeesData = useMemo(() => {
-    return employees.slice(0, 5).map((e) => ({
-      id: e.employeeId || "EMP-SYSTEM",
-      name: e.name,
-      department: e.department,
-      role: e.title,
-      status: e.status === "active" ? "Active" : "On Leave",
-    }));
-  }, [employees]);
-
-  // Format Attendance Chart Data by grouping
-  // Simple grouping by date for last 6 records
-  const attendanceChartData = useMemo(() => {
-    return attendance.slice(0, 6).reverse().map((att) => ({
-      month: att.date ? att.date.substring(5) : "", // MM-DD
-      present: attendance.filter((a) => a.date === att.date && a.status === "present").length * 150 + 800, // scaled for chart look
-      remote: attendance.filter((a) => a.date === att.date && a.status === "remote").length * 80 + 150,
-    }));
-  }, [attendance]);
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background dark:bg-slate-950">
-        <p className="text-sm font-semibold text-slate-500 animate-pulse">Loading operations overview...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -132,26 +97,50 @@ export default function AdminDashboard() {
       />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {stats?.statCards ? (
-          stats.statCards.map((card) => (
-            <StatCard key={card.label} {...card} icon={iconMap[card.icon]} />
-          ))
-        ) : (
-          <p className="text-sm text-slate-400">Loading stats...</p>
-        )}
+        {cards.map((card) => (
+          <StatCard key={card.label} {...card} icon={iconMap[card.icon]} />
+        ))}
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.35fr_0.9fr]">
-        <AttendanceChart data={attendanceChartData.length ? attendanceChartData : undefined} />
-        <TaskChart data={taskChartData} />
+      <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <AIForecast data={dashboardData?.aiForecast} />
+        <FinanceOverview data={dashboardData?.financeOverview} />
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+        <AttendanceChart data={dashboardData?.attendanceOverview} />
+        <TaskChart data={dashboardData?.taskCompletion} />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[0.95fr_1.35fr]">
-        <ProjectChart data={projectChartData.length ? projectChartData : undefined} />
-        <RecentTasks data={recentTasksData} />
+        <ProjectChart data={dashboardData?.projectProgress} />
+        <RecentTasks data={dashboardData?.recentTasks} />
       </section>
 
-      <RecentEmployees data={recentEmployeesData} />
+      <section className="grid gap-6 xl:grid-cols-[0.95fr_1.35fr]">
+        <InventoryIntelligence data={dashboardData?.inventoryIntelligence} />
+        <PendingApprovals data={dashboardData?.pendingApprovals} />
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[0.95fr_1.35fr]">
+        <EmployeeAnalytics />
+        <RecentActivities data={dashboardData?.recentActivities} />
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[1fr_0.45fr]">
+        <RecentEmployees data={dashboardData?.recentEmployees} />
+        <div className="space-y-4">
+          <NotificationsPanel />
+          <QuickActions />
+          <SystemStatus />
+        </div>
+      </section>
+
+      <RunForecastModal
+        isOpen={isForecastModalOpen}
+        onClose={() => setIsForecastModalOpen(false)}
+        onSuccess={() => setIsForecastModalOpen(false)}
+      />
     </div>
   );
 }

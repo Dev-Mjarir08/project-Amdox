@@ -1,50 +1,47 @@
 import { FiTrendingDown, FiTrendingUp } from "react-icons/fi";
 
 const toneClasses = {
-  blue: "bg-blue-50 text-primary ring-blue-100 dark:bg-blue-950/35 dark:text-blue-300 dark:ring-blue-900/60",
-  cyan: "bg-cyan-50 text-accent ring-cyan-100 dark:bg-cyan-950/35 dark:text-cyan-300 dark:ring-cyan-900/60",
-  emerald:
-    "bg-emerald-50 text-success ring-emerald-100 dark:bg-emerald-950/35 dark:text-emerald-300 dark:ring-emerald-900/60",
-  amber:
-    "bg-amber-50 text-warning ring-amber-100 dark:bg-amber-950/35 dark:text-amber-300 dark:ring-amber-900/60",
-  rose: "bg-red-50 text-danger ring-red-100 dark:bg-red-950/35 dark:text-red-300 dark:ring-red-900/60",
+  blue: "bg-blue-50 text-primary dark:bg-blue-950/40 dark:text-blue-400",
+  cyan: "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/40 dark:text-cyan-400",
+  emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400",
+  amber: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400",
+  rose: "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400",
 };
 
-export default function StatCard({ label, value, change, trend = "neutral", icon: Icon, tone }) {
+export default function StatCard({ label, value, change, trend = "neutral", icon: Icon, tone = "blue" }) {
   const TrendIcon = trend === "down" ? FiTrendingDown : FiTrendingUp;
-  const trendClass =
-    trend === "down"
-      ? "text-success bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-300"
-      : trend === "neutral"
-        ? "text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-300"
-        : "text-success bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-300";
+  
+  const trendBadgeClass = trend === "down"
+    ? "bg-rose-50 text-rose-700 border border-rose-200/60 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/40"
+    : trend === "neutral"
+      ? "bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+      : "bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40";
 
   return (
-    <article className="erp-panel group rounded-xl p-5 transition duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-soft">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-slate-500 dark:text-slate-400">
+    <article className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-card transition-all hover:shadow-cardHover hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
             {label}
           </p>
-          <p className="mt-3 text-2xl font-bold text-slate-950 dark:text-white">{value}</p>
+          <p className="mt-2 text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+            {value}
+          </p>
         </div>
-        <span
-          className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ring-1 ${
-            toneClasses[tone] ?? toneClasses.blue
-          }`}
-        >
-          <Icon className="h-5 w-5" />
-        </span>
+        {Icon && (
+          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-100 shadow-2xs dark:border-slate-800 ${toneClasses[tone] || toneClasses.blue}`}>
+            <Icon className="h-5 w-5" />
+          </div>
+        )}
       </div>
-      <div className="mt-5 flex items-center justify-between gap-3">
-        <span
-          className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold ${trendClass}`}
-        >
-          {trend !== "neutral" ? <TrendIcon className="h-3.5 w-3.5" /> : null}
+
+      <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-slate-800/60">
+        <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-extrabold ${trendBadgeClass}`}>
+          {trend !== "neutral" && <TrendIcon className="h-3 w-3" />}
           {change}
         </span>
-        <span className="text-xs text-slate-400 transition group-hover:text-slate-500 dark:text-slate-500">
-          vs last month
+        <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
+          vs prior period
         </span>
       </div>
     </article>

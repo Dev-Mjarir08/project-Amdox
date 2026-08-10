@@ -1,485 +1,312 @@
-import { useEffect, useState, useMemo } from "react";
-import { FiPlus, FiCheckSquare, FiUser, FiCalendar, FiEdit2, FiTrash2, FiClock, FiAlertCircle } from "react-icons/fi";
-import PageHeader from "../../components/common/PageHeader.jsx";
-import { apiFetch } from "../../utils/api.js";
-import { useAuth } from "../../context/AuthContext.jsx";
+import { useState, useEffect } from 'react';
+import { FiCheckSquare, FiDownload, FiPlus, FiSearch, FiCheck, FiClock, FiAlertCircle, FiTrash2 } from 'react-icons/fi';
+import PageHeader from '../../components/common/PageHeader.jsx';
+import NewTaskModal from '../../components/modals/NewTaskModal.jsx';
+import ConfirmModal from '../../components/modals/ConfirmModal.jsx';
+import api from '../../lib/api.js';
+import { exportToCSV } from '../../lib/utils.js';
+import { toast } from 'react-toastify';
 
 export default function Tasks() {
-  const { user: currentUser } = useAuth();
   const [tasks, setTasks] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [searchText, setSearchText] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-  // Modals state
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
+  useEffect(() => {
+    fetchTasks();
+  }, [statusFilter, priorityFilter]);
 
-  // Form states
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    project_id: "",
-    assigned_to: "",
-    status: "pending",
-    due_date: "",
-  });
-
-  const loadData = async () => {
+  const fetchTasks = async () => {
     try {
       setLoading(true);
-      const [taskData, empData, projData] = await Promise.all([
-        apiFetch("/api/tasks"),
-        apiFetch("/api/employees"),
-        apiFetch("/api/projects")
-      ]);
-      setTasks(taskData);
-      setEmployees(empData);
-      setProjects(projData);
-    } catch (err) {
-      setError(err.message);
+      const response = await api.get('/tasks', {
+        params: {
+          status: statusFilter === 'in_progress' ? 'in-progress' : statusFilter,
+          priority: priorityFilter
+        }
+      });
+      if (response.data && Array.isArray(response.data)) {
+        const normalized = response.data.map(t => ({
+          ...t,
+          status: t.status === 'in-progress' ? 'in_progress' : t.status
+        }));
+        setTasks(normalized);
+      } else {
+        setTasks([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch tasks:', error);
+      setTasks([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const handleOpenAddModal = () => {
-    setFormData({
-      title: "",
-      description: "",
-      project_id: projects[0]?.id || "",
-      assigned_to: employees[0]?.id || "",
-      status: "pending",
-      due_date: new Date().toISOString().split("T")[0],
-    });
-    setError("");
-    setIsAddModalOpen(true);
+  const handleNewTask = () => {
+    setIsModalOpen(true);
   };
 
-  const handleOpenEditModal = (task) => {
-    setSelectedTask(task);
-    setFormData({
-      title: task.title,
-      description: task.description || "",
-      project_id: task.project_id || "",
-      assigned_to: task.assigned_to || "",
-      status: task.status,
-      due_date: task.due_date || "",
-    });
-    setError("");
-    setIsEditModalOpen(true);
+  const handleDeleteTask = (id) => {
+    setDeleteConfirmId(id);
   };
 
-  const handleAddTask = async (e) => {
-    e.preventDefault();
+  const confirmDeleteTask = async () => {
+    if (!deleteConfirmId) return;
+    setDeleting(true);
     try {
-      setError("");
-      await apiFetch("/api/tasks", {
-        method: "POST",
-        body: JSON.stringify(formData),
-      });
-      setSuccess("Task created successfully!");
-      setIsAddModalOpen(false);
-      loadData();
-      setTimeout(() => setSuccess(""), 3000);
+      await api.delete(`/tasks/${deleteConfirmId}`);
+      toast.success('Task deleted successfully!');
+      fetchTasks();
     } catch (err) {
-      setError(err.message);
+      console.error("Failed to delete task:", err);
+      toast.error("Failed to delete task: " + (err.response?.data?.message || err.message));
+    } finally {
+      setDeleting(false);
+      setDeleteConfirmId(null);
     }
   };
 
-  const handleEditTask = async (e) => {
-    e.preventDefault();
+  const handleCompleteTask = async (id) => {
     try {
-      setError("");
-      await apiFetch(`/api/tasks/${selectedTask.id}`, {
-        method: "PUT",
-        body: JSON.stringify(formData),
-      });
-      setSuccess("Task updated successfully!");
-      setIsEditModalOpen(false);
-      loadData();
-      setTimeout(() => setSuccess(""), 3000);
+      await api.put(`/tasks/${id}`, { status: 'completed' });
+      toast.success('Task completed successfully');
+      fetchTasks();
     } catch (err) {
-      setError(err.message);
+      console.error("Failed to complete task:", err);
+      toast.error("Failed to complete task: " + (err.response?.data?.message || err.message));
     }
   };
 
-  const handleDeleteTask = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this task?")) return;
-    try {
-      setError("");
-      await apiFetch(`/api/tasks/${id}`, {
-        method: "DELETE",
-      });
-      setSuccess("Task deleted successfully!");
-      loadData();
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      setError(err.message);
-    }
+  const filteredTasks = tasks.filter(task => {
+    const matchesSearch = task.title.toLowerCase().includes(searchText.toLowerCase()) ||
+                          (task.assignee_name && task.assignee_name.toLowerCase().includes(searchText.toLowerCase())) ||
+                          (task.project_name && task.project_name.toLowerCase().includes(searchText.toLowerCase()));
+    return matchesSearch;
+  });
+
+  const handleExport = () => {
+    exportToCSV(filteredTasks, 'tasks.csv');
   };
 
-  // Group tasks by status
-  const statuses = [
-    { key: "pending", label: "Pending", tone: "slate", color: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
-    { key: "in-progress", label: "In Progress", tone: "blue", color: "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400" },
-    { key: "blocked", label: "Blocked", tone: "red", color: "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400" },
-    { key: "completed", label: "Completed", tone: "green", color: "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400" },
-  ];
+  const getStatusBadge = (status) => {
+    const styles = {
+      todo: 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400',
+      in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+      review: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+      completed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+      blocked: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+    };
+    return styles[status] || styles.todo;
+  };
 
-  // Memoize task grouping to prevent duplicate full-array filtering on columns
-  const tasksByStatus = useMemo(() => {
-    const groups = { pending: [], "in-progress": [], blocked: [], completed: [] };
-    tasks.forEach((t) => {
-      if (groups[t.status]) {
-        groups[t.status].push(t);
-      }
-    });
-    return groups;
-  }, [tasks]);
-
-  const canManage = currentUser?.role === "admin" || currentUser?.role === "manager";
+  const getPriorityBadge = (priority) => {
+    const styles = {
+      low: 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400',
+      medium: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+      high: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+      critical: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+    };
+    return styles[priority] || styles.medium;
+  };
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Task Flow"
-        title="Tasks Board"
-        description="Organize internal operations and assign tasks to teammates."
+        eyebrow="Projects"
+        title="Tasks"
+        description="Track tasks, assign resources, and monitor progress"
         actions={
-          canManage && (
-            <button
-              onClick={handleOpenAddModal}
-              className="erp-focus inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
-            >
-              <FiPlus className="h-4 w-4" />
-              New Task
-            </button>
-          )
+          <button onClick={handleNewTask} className="erp-focus inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700">
+            <FiPlus className="h-4 w-4" />
+            New Task
+          </button>
         }
       />
 
-      {success && (
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700 dark:border-green-900/30 dark:bg-green-950/20 dark:text-green-400">
-          {success}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border border-white/70 bg-white/85 p-6 shadow-soft backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Total Tasks</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">{tasks.length}</p>
+            </div>
+            <div className="rounded-xl bg-blue-100 p-3 dark:bg-blue-900/30">
+              <FiCheckSquare className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            </div>
+          </div>
         </div>
-      )}
-
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400">
-          {error}
+        <div className="rounded-xl border border-white/70 bg-white/85 p-6 shadow-soft backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">In Progress</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                {tasks.filter(t => t.status === 'in_progress').length}
+              </p>
+            </div>
+            <div className="rounded-xl bg-amber-100 p-3 dark:bg-amber-900/30">
+              <FiClock className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+            </div>
+          </div>
         </div>
-      )}
-
-      {loading ? (
-        <div className="erp-panel flex h-60 items-center justify-center rounded-xl">
-          <p className="text-sm font-semibold text-slate-500">Loading Tasks...</p>
+        <div className="rounded-xl border border-white/70 bg-white/85 p-6 shadow-soft backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Completed</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                {tasks.filter(t => t.status === 'completed').length}
+              </p>
+            </div>
+            <div className="rounded-xl bg-emerald-100 p-3 dark:bg-emerald-900/30">
+              <FiCheck className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+            </div>
+          </div>
         </div>
-      ) : (
-        <div className="grid gap-6 min-h-[500px] lg:grid-cols-4">
-          {statuses.map((col) => {
-            const columnTasks = tasksByStatus[col.key] || [];
-            return (
-              <section key={col.key} className="flex flex-col gap-4">
-                {/* Column Header */}
-                <div className="flex items-center justify-between border-b border-slate-200 pb-2 dark:border-slate-800">
-                  <span className="flex items-center gap-2 text-sm font-extrabold text-slate-900 dark:text-white">
-                    <span className={`inline-block h-2 w-2 rounded-full ${
-                      col.tone === "blue" ? "bg-primary" : col.tone === "red" ? "bg-danger" : col.tone === "green" ? "bg-success" : "bg-slate-400"
-                    }`} />
-                    {col.label}
-                  </span>
-                  <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500 dark:bg-slate-850 dark:text-slate-400">
-                    {columnTasks.length}
-                  </span>
-                </div>
+        <div className="rounded-xl border border-white/70 bg-white/85 p-6 shadow-soft backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Blocked</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                {tasks.filter(t => t.status === 'blocked').length}
+              </p>
+            </div>
+            <div className="rounded-xl bg-rose-100 p-3 dark:bg-rose-900/30">
+              <FiAlertCircle className="h-6 w-6 text-rose-600 dark:text-rose-400" />
+            </div>
+          </div>
+        </div>
+      </div>
 
-                {/* Column Items */}
-                <div className="flex-1 space-y-4 rounded-xl bg-slate-50/50 p-2 dark:bg-slate-950/20">
-                  {columnTasks.length === 0 ? (
-                    <p className="py-6 text-center text-xs italic text-slate-400">No tasks</p>
-                  ) : (
-                    columnTasks.map((task) => (
-                      <article
-                        key={task.id}
-                        className="erp-panel group relative rounded-xl p-4 hover:shadow-md transition-all"
-                      >
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">{task.title}</h4>
-                        <p className="mt-1 text-xs text-slate-400 line-clamp-2">{task.description}</p>
-                        
-                        <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
-                          <span className="text-[10px] font-bold text-primary truncate">
-                            Project: {task.project_name || "Workspace"}
-                          </span>
-                          
-                          <div className="flex items-center justify-between">
-                            <span className="flex items-center gap-1 text-[10px] text-slate-400">
-                              <FiCalendar className="h-3 w-3" />
-                              {task.due_date || "No due date"}
-                            </span>
+      <div className="rounded-xl border border-white/70 bg-white/85 p-6 shadow-soft backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+        <div className="mb-6 flex flex-wrap gap-4">
+          <div className="flex-1 min-w-[200px]">
+            <div className="relative">
+              <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search tasks..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                className="erp-focus h-11 w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-10 pr-4 text-sm dark:border-slate-800 dark:bg-slate-900/80"
+              />
+            </div>
+          </div>
+          <select 
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="erp-focus h-11 rounded-xl border border-slate-200 bg-slate-50/80 px-4 text-sm dark:border-slate-800 dark:bg-slate-900/80"
+          >
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="blocked">Blocked</option>
+          </select>
+          <select 
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value)}
+            className="erp-focus h-11 rounded-xl border border-slate-200 bg-slate-50/80 px-4 text-sm dark:border-slate-800 dark:bg-slate-900/80"
+          >
+            <option value="all">All Priority</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+          <button onClick={handleExport} className="erp-focus inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-primary/40 hover:text-primary dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+            <FiDownload className="h-4 w-4" />
+            Export
+          </button>
+        </div>
 
-                            <div className="flex items-center gap-1.5">
-                              <span
-                                className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[8px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-350"
-                                title={task.assignee_name || "Unassigned"}
-                              >
-                                {task.assignee_initials || "?"}
-                              </span>
-                            </div>
-                          </div>
+        {loading ? (
+          <div className="flex h-64 items-center justify-center">
+            <div className="text-sm text-slate-500">Loading tasks...</div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800">
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Task</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Project</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Assignee</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Due Date</th>
+                  <th className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-200">Priority</th>
+                  <th className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-200">Status</th>
+                  <th className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-200">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTasks.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="px-4 py-12 text-center text-slate-500">
+                      No tasks found
+                    </td>
+                  </tr>
+                ) : (
+                  filteredTasks.map((task) => (
+                    <tr key={task.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="font-medium text-slate-900 dark:text-slate-100">{task.title}</p>
                         </div>
-
-                        {/* Quick Edit Overlay */}
-                        {canManage && (
-                          <div className="absolute right-2 top-2 hidden group-hover:flex gap-1">
-                            <button
-                              onClick={() => handleOpenEditModal(task)}
-                              className="erp-focus rounded bg-white p-1 text-slate-400 shadow-sm border border-slate-200 hover:text-slate-800 dark:bg-slate-900 dark:border-slate-850 dark:hover:text-white"
-                              title="Edit Task"
-                            >
-                              <FiEdit2 className="h-3 w-3" />
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{task.project_name}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{task.assignee_name}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{task.due_date}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getPriorityBadge(task.priority)}`}>
+                          {task.priority}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadge(task.status)}`}>
+                          {task.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          {task.status !== 'completed' && (
+                            <button onClick={() => handleCompleteTask(task.id)} className="erp-focus inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" title="Complete Task">
+                              <FiCheck className="h-4 w-4" />
                             </button>
-                            <button
-                              onClick={() => handleDeleteTask(task.id)}
-                              className="erp-focus rounded bg-white p-1 text-slate-400 shadow-sm border border-slate-200 hover:text-red-600 dark:bg-slate-900 dark:border-slate-850"
-                              title="Delete Task"
-                            >
-                              <FiTrash2 className="h-3 w-3" />
-                            </button>
-                          </div>
-                        )}
-                      </article>
-                    ))
-                  )}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Add Task Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
-            <div className="border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Create New Task</h3>
-            </div>
-            <form onSubmit={handleAddTask} className="p-6 space-y-4">
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Task Title</span>
-                <input
-                  type="text"
-                  required
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Project</span>
-                <select
-                  value={formData.project_id}
-                  onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
-                  className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                >
-                  <option value="">No Project (General task)</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Assign To</span>
-                <select
-                  value={formData.assigned_to}
-                  onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
-                  className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                >
-                  <option value="">Unassigned</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.title})
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="grid grid-cols-2 gap-4">
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Due Date</span>
-                  <input
-                    type="date"
-                    required
-                    value={formData.due_date}
-                    onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Initial Status</span>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="in-progress">In Progress</option>
-                    <option value="blocked">Blocked</option>
-                    <option value="completed">Completed</option>
-                  </select>
-                </label>
-              </div>
-
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Description</span>
-                <textarea
-                  rows={3}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white p-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                />
-              </label>
-
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="erp-focus h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="erp-focus h-11 rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
-                >
-                  Create Task
-                </button>
-              </div>
-            </form>
+                          )}
+                          <button onClick={() => handleDeleteTask(task.id)} className="erp-focus inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-rose-600 shadow-sm transition hover:border-rose-400 hover:text-rose-600 dark:border-slate-800 dark:bg-slate-900 dark:text-rose-400" title="Delete Task">
+                            <FiTrash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Edit Task Modal */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
-            <div className="border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Edit Task Details</h3>
-            </div>
-            <form onSubmit={handleEditTask} className="p-6 space-y-4">
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Task Title</span>
-                <input
-                  type="text"
-                  required
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                />
-              </label>
+      <NewTaskModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={() => {
+          fetchTasks();
+          setIsModalOpen(false);
+        }}
+      />
 
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Project</span>
-                <select
-                  value={formData.project_id}
-                  onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
-                  className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                >
-                  <option value="">No Project (General task)</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Assign To</span>
-                <select
-                  value={formData.assigned_to}
-                  onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
-                  className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                >
-                  <option value="">Unassigned</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.title})
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="grid grid-cols-2 gap-4">
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Due Date</span>
-                  <input
-                    type="date"
-                    required
-                    value={formData.due_date}
-                    onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Status</span>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="in-progress">In Progress</option>
-                    <option value="blocked">Blocked</option>
-                    <option value="completed">Completed</option>
-                  </select>
-                </label>
-              </div>
-
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Description</span>
-                <textarea
-                  rows={3}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white p-3.5 text-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                />
-              </label>
-
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="erp-focus h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="erp-focus h-11 rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={Boolean(deleteConfirmId)}
+        onClose={() => setDeleteConfirmId(null)}
+        onConfirm={confirmDeleteTask}
+        loading={deleting}
+        title="Delete Task"
+        message="Are you sure you want to delete this task? This action cannot be undone."
+      />
     </div>
   );
 }

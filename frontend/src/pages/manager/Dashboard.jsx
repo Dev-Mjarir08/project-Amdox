@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { FiBarChart2, FiBriefcase, FiCheckSquare, FiDownload, FiUserCheck } from "react-icons/fi";
 import ProjectChart from "../../components/dashboard/ProjectChart.jsx";
 import RecentEmployees from "../../components/dashboard/RecentEmployees.jsx";
@@ -6,7 +6,7 @@ import RecentTasks from "../../components/dashboard/RecentTasks.jsx";
 import StatCard from "../../components/dashboard/StatCard.jsx";
 import TaskChart from "../../components/dashboard/TaskChart.jsx";
 import PageHeader from "../../components/common/PageHeader.jsx";
-import { apiFetch } from "../../utils/api.js";
+import api from "../../lib/api.js";
 
 const iconMap = {
   projects: FiBriefcase,
@@ -15,103 +15,48 @@ const iconMap = {
   team: FiUserCheck,
 };
 
-export default function ManagerDashboard() {
-  const [stats, setStats] = useState(null);
-  const [employees, setEmployees] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+const staticStatCards = {
+  manager: [
+    { label: "Active Projects", value: "0", description: "Owned deliverables", icon: "projects" },
+    { label: "Pending Tasks", value: "0", description: "Milestones to complete", icon: "tasks" },
+    { label: "Team Members", value: "0", description: "Direct reports active", icon: "team" },
+    { label: "Reports Generated", value: "0", description: "Saved analytical metrics", icon: "reports" }
+  ]
+};
 
-  const loadManagerData = async () => {
-    try {
-      setLoading(true);
-      const [statsData, empData, taskData, projData] = await Promise.all([
-        apiFetch("/api/dashboard/stats"),
-        apiFetch("/api/employees"),
-        apiFetch("/api/tasks"),
-        apiFetch("/api/projects")
-      ]);
-      setStats(statsData);
-      setEmployees(empData);
-      setTasks(taskData);
-      setProjects(projData);
-    } catch (err) {
-      console.error("Failed to load Manager dashboard data:", err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+export default function ManagerDashboard() {
+  const [cards, setCards] = useState(staticStatCards.manager);
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState(null);
 
   useEffect(() => {
-    loadManagerData();
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get("/dashboard/stats");
+        if (res.data) {
+          setDashboardData(res.data);
+          if (Array.isArray(res.data.statCards)) {
+            const merged = staticStatCards.manager.map(staticCard => {
+              const dynamicCard = res.data.statCards.find(c => c.label === staticCard.label);
+              return dynamicCard ? { ...staticCard, value: dynamicCard.value } : staticCard;
+            });
+            setCards(merged);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load Manager backend stats:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
   }, []);
-
-  const managerStatCards = stats?.statCards || [
-    { label: "Active Projects", value: "0", change: "+0 total", trend: "up", icon: "projects", tone: "blue" },
-    { label: "Team Members", value: "0", change: "+0 joined", trend: "up", icon: "team", tone: "emerald" },
-    { label: "Pending Tasks", value: "0", change: "Stable", trend: "down", icon: "tasks", tone: "amber" },
-    { label: "Blocked Work", value: "0", change: "+0 alert", trend: "up", icon: "reports", tone: "rose" },
-  ];
-
-  // Format Project Chart
-  const projectChartData = useMemo(() => {
-    return projects.map((p) => ({
-      name: p.name ? p.name.split(" ")[0] : "Project",
-      progress: p.progress,
-    }));
-  }, [projects]);
-
-  // Format Task Chart
-  const taskChartData = useMemo(() => {
-    const totalTasks = tasks.length || 1;
-    const completedTasks = tasks.filter((t) => t.status === "completed").length;
-    const inProgressTasks = tasks.filter((t) => t.status === "in-progress").length;
-    const pendingTasks = tasks.filter((t) => t.status === "pending").length;
-    const blockedTasks = tasks.filter((t) => t.status === "blocked").length;
-
-    return [
-      { name: "Completed", value: Math.round((completedTasks / totalTasks) * 100) },
-      { name: "In Progress", value: Math.round((inProgressTasks / totalTasks) * 100) },
-      { name: "Pending", value: Math.round((pendingTasks / totalTasks) * 100) },
-      { name: "Blocked", value: Math.round((blockedTasks / totalTasks) * 100) },
-    ];
-  }, [tasks]);
-
-  // Format Recent Tasks
-  const recentTasksData = useMemo(() => {
-    return tasks.slice(0, 5).map((t) => ({
-      id: t.id ? t.id.substring(t.id.length - 8).toUpperCase() : "TASK",
-      title: t.title,
-      dueDate: t.due_date,
-      assignedTo: t.assignee_name,
-      priority: "Medium",
-      status: t.status === "in-progress" ? "In Progress" : t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : "Pending",
-    }));
-  }, [tasks]);
-
-  // Format Recent Employees
-  const recentEmployeesData = useMemo(() => {
-    return employees.slice(0, 5).map((e) => ({
-      id: e.employeeId || "EMP-SYSTEM",
-      name: e.name,
-      department: e.department,
-      role: e.title,
-      status: e.status === "active" ? "Active" : "On Leave",
-    }));
-  }, [employees]);
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background dark:bg-slate-950">
-        <p className="text-sm font-semibold text-slate-500 animate-pulse">Loading Manager dashboard...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Manager Dashboard"
+        eyebrow="Manager"
         title="Delivery Command Center"
         description="Keep project progress, team capacity, and priority tasks aligned from one workspace."
         actions={
@@ -123,19 +68,19 @@ export default function ManagerDashboard() {
       />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {managerStatCards.map((card) => (
+        {cards.map((card) => (
           <StatCard key={card.label} {...card} icon={iconMap[card.icon]} />
         ))}
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[0.95fr_1.35fr]">
-        <ProjectChart data={projectChartData.length ? projectChartData : undefined} />
-        <RecentTasks data={recentTasksData} />
+        <ProjectChart data={dashboardData?.projectProgress} />
+        <RecentTasks data={dashboardData?.recentTasks} />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <TaskChart data={taskChartData} />
-        <RecentEmployees data={recentEmployeesData} />
+        <TaskChart data={dashboardData?.taskCompletion} />
+        <RecentEmployees data={dashboardData?.recentEmployees} />
       </section>
     </div>
   );

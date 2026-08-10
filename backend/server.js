@@ -8,10 +8,9 @@ const PORT = process.env.PORT || 5000;
 connectDB().then(() => {
   // Start server listening
   app.listen(PORT, () => {
-    console.log(`=======================================================`);
     console.log(`🚀 AMDOX ERP System - Enterprise MERN Backend Active   `);
     console.log(`🌐 API Server Running on: http://localhost:${PORT}      `);
-    console.log(`=======================================================`);
+    
   });
 }).catch((err) => {
   console.error("Critical: Failed to launch database and initialize API server:", err.message);

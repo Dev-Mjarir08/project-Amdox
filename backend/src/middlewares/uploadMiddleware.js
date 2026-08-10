@@ -6,10 +6,17 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure profile uploads folder exists
-const profileUploadDir = path.join(__dirname, "../../uploads/profiles");
-if (!fs.existsSync(profileUploadDir)) {
-  fs.mkdirSync(profileUploadDir, { recursive: true });
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_EXECUTION_ENV);
+const profileUploadDir = isServerless
+  ? path.join("/tmp", "uploads/profiles")
+  : path.join(__dirname, "../../uploads/profiles");
+
+try {
+  if (!fs.existsSync(profileUploadDir)) {
+    fs.mkdirSync(profileUploadDir, { recursive: true });
+  }
+} catch (err) {
+  console.warn("Profile upload directory setup notice:", err.message);
 }
 
 // Storage Configuration

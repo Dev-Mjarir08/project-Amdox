@@ -14,10 +14,17 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure upload folder exists
-const uploadDir = path.join(__dirname, "../../uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_EXECUTION_ENV);
+const uploadDir = isServerless
+  ? path.join("/tmp", "uploads")
+  : path.join(__dirname, "../../uploads");
+
+try {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+} catch (err) {
+  console.warn("Upload directory setup notice:", err.message);
 }
 
 // Multer Storage config
@@ -33,10 +40,8 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-router.use(verifyToken);
-
-router.get("/", getDocuments);
-router.post("/", isHR, upload.single("file"), createDocument);
-router.delete("/:id", isHR, deleteDocument);
+router.get("/", verifyToken, isEmployee, getDocuments);
+router.post("/", verifyToken, isEmployee, upload.single("file"), createDocument);
+router.delete("/:id", verifyToken, isHR, deleteDocument);
 
 export default router;

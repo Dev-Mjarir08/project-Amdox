@@ -788,8 +788,9 @@ const deleteAccount = async (req, res, next) => {
       });
     }
 
-    if (req.body.password) {
-      const isMatch = await user.comparePassword(req.body.password);
+    const password = req.body?.password || req.query?.password;
+    if (password) {
+      const isMatch = await user.comparePassword(password);
       if (!isMatch) {
         return res.status(400).json({
           success: false,
@@ -798,6 +799,18 @@ const deleteAccount = async (req, res, next) => {
           errors: ["Incorrect password."],
           timestamp: new Date().toISOString()
         });
+      }
+    }
+
+    // Remove profile image file if exists on disk
+    if (user.profileImage && user.profileImage.startsWith("/uploads/profiles/")) {
+      const oldPath = path.join(process.cwd(), user.profileImage);
+      if (fs.existsSync(oldPath)) {
+        try {
+          fs.unlinkSync(oldPath);
+        } catch (e) {
+          console.error("Failed to delete profile image on account deletion:", e);
+        }
       }
     }
 

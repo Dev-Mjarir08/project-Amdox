@@ -44,5 +44,6 @@ router.post("/verify-otp", verifyOTP);
 router.post("/deactivate", verifyToken, deactivateAccount);
 router.post("/reactivate", reactivateAccount);
 router.delete("/delete-account", verifyToken, deleteAccount);
+router.post("/delete-account", verifyToken, deleteAccount);
 
 export default router;

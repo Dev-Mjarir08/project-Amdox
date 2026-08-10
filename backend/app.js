@@ -55,10 +55,15 @@ app.use(
     origin: function (origin, callback) {
       if (!origin) return callback(null, true);
       const isLocalhost = origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:");
-      if (isLocalhost || origin === process.env.CLIENT_URL) {
+      if (
+        isLocalhost ||
+        origin === process.env.CLIENT_URL ||
+        origin.endsWith(".vercel.app") ||
+        process.env.NODE_ENV !== "production"
+      ) {
         return callback(null, true);
       }
-      return callback(new Error("CORS not allowed"), false);
+      return callback(null, true);
     },
     credentials: true,
   })

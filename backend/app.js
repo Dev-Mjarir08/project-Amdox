@@ -49,23 +49,33 @@ const app = express();
 app.set("trust proxy", 1);
 
 // Standard Enterprise Middlewares
-app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+// Universal Dynamic CORS & Preflight OPTIONS Middleware
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, DELETE, PATCH, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cookie, Access-Control-Allow-Origin");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+  next();
+});
+
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      const isLocalhost = origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:");
-      if (
-        isLocalhost ||
-        origin === process.env.CLIENT_URL ||
-        origin.endsWith(".vercel.app") ||
-        process.env.NODE_ENV !== "production"
-      ) {
-        return callback(null, true);
-      }
       return callback(null, true);
     },
     credentials: true,
+    methods: ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization", "Cookie"],
+    optionsSuccessStatus: 200,
   })
 );
 app.use(express.json());

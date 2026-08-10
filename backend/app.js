@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import compression from "compression";
@@ -47,8 +48,8 @@ const app = express();
 // Trust proxy for rate limiting (essential in cloud environments like Vercel/Render)
 app.set("trust proxy", 1);
 
-// Standard Enterprise Middlewares
-
+// Standard Enterprise Middlewares & Bulletproof CORS
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -60,9 +61,11 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Apply rate limiting to authentication endpoints
 app.use("/api/auth", apiLimiter);
+app.use("/auth", apiLimiter);
 
-// Mount API Routes
+// Mount API Routes (Supporting both /api/auth and /auth)
 app.use("/api/auth", authRoutes);
+app.use("/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 
 // Support both /api/employees and /api/hr/employees for absolute alignment with frontend page fetches

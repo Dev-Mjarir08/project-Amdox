@@ -2,6 +2,8 @@
 
 This document describes the database schema architecture for the **AMDOX ERP System**. The database comprises **25 MongoDB Mongoose collections** representing workforce management, financial accounting, sales pipelines, and supply chain inventory.
 
+![Database ER Diagram](database-erd.png)
+
 ## Complete Entity Relationship Diagram (25 Collections)
 
 ```mermaid

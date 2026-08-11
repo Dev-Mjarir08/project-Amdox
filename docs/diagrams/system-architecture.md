@@ -2,6 +2,8 @@
 
 This document presents the end-to-end system architecture of the **AMDOX Enterprise Resource Planning (ERP)** platform.
 
+![System Architecture Diagram](system-architecture.png)
+
 ## Architecture Overview
 
 AMDOX ERP is built as a decoupled, multi-tiered enterprise application consisting of a **React 19 single-page application (SPA)** on the frontend, an **Express / Node.js REST API** runtime on the backend, and **MongoDB Atlas** for document persistence.

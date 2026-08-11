@@ -128,10 +128,10 @@ const getClockInStatus = async (req, res, next) => {
 // Clock In Operation
 const clockIn = async (req, res, next) => {
   try {
-    const today = new Date().toISOString().split("T")[0];
     const now = new Date();
-    // Format checkInTime as HH:MM:SS
-    const checkInTime = now.toTimeString().split(" ")[0];
+    // Prioritize client laptop local time & date
+    const checkInTime = req.body.checkIn || req.body.localTime || now.toTimeString().split(" ")[0];
+    const today = req.body.date || now.toISOString().split("T")[0];
 
     // Evaluate Late Arrival: Shift starts at 9:00 AM, 15 mins grace period (9:15 AM = 555 mins)
     const [h, m] = checkInTime.split(":").map(Number);
@@ -142,10 +142,9 @@ const clockIn = async (req, res, next) => {
       status = totalMinutes > 555 ? "late" : "present";
     }
 
-    // Check if already clocked in today
+    // Check if already clocked in (active open session)
     const existing = await Attendance.findOne({
       employee: req.user._id,
-      date: today,
       checkOut: null,
     });
 
@@ -172,7 +171,7 @@ const clockIn = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: `Clocked in successfully${isLateMsg}.`,
+      message: `Clocked in successfully at ${checkInTime}${isLateMsg}.`,
       data: {
         id: log._id,
         user_id: log.employee,
@@ -193,34 +192,40 @@ const clockIn = async (req, res, next) => {
 // Clock Out Operation
 const clockOut = async (req, res, next) => {
   try {
-    const today = new Date().toISOString().split("T")[0];
-    const checkOutTime = new Date().toTimeString().split(" ")[0]; // HH:MM:SS
+    const now = new Date();
+    const checkOutTime = req.body.checkOut || req.body.localTime || now.toTimeString().split(" ")[0];
 
     const log = await Attendance.findOne({
       employee: req.user._id,
-      date: today,
       checkOut: null,
-    });
+    }).sort({ createdAt: -1 });
 
     if (!log) {
       return res.status(400).json({
         success: false,
-        message: "No active clock-in session found for today.",
+        message: "No active clock-in session found.",
         data: null,
-        errors: ["No active clock-in session found for today."],
+        errors: ["No active clock-in session found."],
         timestamp: new Date().toISOString()
       });
     }
 
     // Calculate hours worked
     const parseTimeToSeconds = (timeStr) => {
-      const [h, m, s] = timeStr.split(":").map(Number);
+      if (!timeStr) return 0;
+      const parts = timeStr.split(":").map(Number);
+      const h = parts[0] || 0;
+      const m = parts[1] || 0;
+      const s = parts[2] || 0;
       return h * 3600 + m * 60 + s;
     };
 
     const inSecs = parseTimeToSeconds(log.checkIn);
     const outSecs = parseTimeToSeconds(checkOutTime);
-    const diff = outSecs - inSecs;
+    let diff = outSecs - inSecs;
+    if (diff < 0) {
+      diff += 24 * 3600; // handle overnight shift
+    }
     const diffHours = parseFloat((diff / 3600).toFixed(2));
 
     log.checkOut = checkOutTime;
@@ -229,7 +234,7 @@ const clockOut = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: "Clocked out successfully.",
+      message: `Clocked out successfully at ${checkOutTime}.`,
       data: {
         id: log._id,
         user_id: log.employee,

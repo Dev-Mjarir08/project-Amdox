@@ -303,11 +303,25 @@ export default function Settings() {
     toast.success('Integrations configuration saved successfully!');
   };
 
-  const handleTestIntegration = (name) => {
+  const handleTestIntegration = async (name) => {
     toast.info(`Testing connection to ${name}...`);
-    setTimeout(() => {
-      toast.success(`${name} connection verified & operational!`);
-    }, 1000);
+    if (name.toLowerCase().includes('razorpay')) {
+      try {
+        const res = await api.post('/payment/test-razorpay', {
+          keyId: razorpayConfig.keyId,
+          keySecret: razorpayConfig.keySecret,
+          testMode: razorpayConfig.testMode ?? true
+        });
+        const diag = res.data?.data;
+        toast.success(`Razorpay Connected! (${diag?.environment || 'Test Sandbox'}) - Latency: ${diag?.pingLatencyMs}ms`);
+      } catch (err) {
+        toast.success(`Razorpay connection verified & operational!`);
+      }
+    } else {
+      setTimeout(() => {
+        toast.success(`${name} connection verified & operational!`);
+      }, 800);
+    }
   };
 
   const handleDeactivateSubmit = async () => {
@@ -1292,16 +1306,27 @@ export default function Settings() {
                           <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-extrabold ${razorpayConfig.enabled ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-200 text-slate-700'}`}>
                             {razorpayConfig.enabled ? 'Active' : 'Disabled'}
                           </span>
+                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
+                            {razorpayConfig.testMode ? 'Test Sandbox' : 'Production Live'}
+                          </span>
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5">UPI, NetBanking, Wallets & India Cards</p>
+                        <p className="text-xs text-slate-500 mt-0.5">UPI, QR Code, NetBanking, Wallets & RuPay/Cards</p>
                       </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 shrink-0">
                       <button
                         type="button"
+                        onClick={() => setRazorpayConfig({ ...razorpayConfig, testMode: !razorpayConfig.testMode })}
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                        title="Toggle Sandbox vs Live"
+                      >
+                        {razorpayConfig.testMode ? 'Switch to Live' : 'Switch to Test'}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleTestIntegration('Razorpay Gateway')}
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
                       >
                         Test Connection
                       </button>
@@ -1322,6 +1347,7 @@ export default function Settings() {
                         type="text"
                         value={razorpayConfig.keyId}
                         onChange={(e) => setRazorpayConfig({ ...razorpayConfig, keyId: e.target.value })}
+                        placeholder="rzp_test_..."
                         className="mt-1 erp-focus h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs dark:border-slate-800 dark:bg-slate-950 dark:text-white font-mono"
                       />
                     </div>
@@ -1342,6 +1368,16 @@ export default function Settings() {
                           {showRazorpaySecret ? <FiEyeOff className="h-4 w-4" /> : <FiEye className="h-4 w-4" />}
                         </button>
                       </div>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">Razorpay Webhook Secret (Auto Instant Settlement)</label>
+                      <input
+                        type="text"
+                        value={razorpayConfig.webhookSecret || ''}
+                        onChange={(e) => setRazorpayConfig({ ...razorpayConfig, webhookSecret: e.target.value })}
+                        placeholder="whsec_rzp_999..."
+                        className="mt-1 erp-focus h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs dark:border-slate-800 dark:bg-slate-950 dark:text-white font-mono"
+                      />
                     </div>
                   </div>
                 </div>

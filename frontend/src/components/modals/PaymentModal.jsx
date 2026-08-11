@@ -268,24 +268,56 @@ AMDOX Enterprise Resource Planning Platform
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="flex gap-2">
+                <div className="grid grid-cols-4 gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/60 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('QR')}
+                    className={`py-1.5 rounded-lg transition ${paymentMethod === 'QR' ? 'bg-white text-blue-700 shadow-xs dark:bg-slate-900 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}
+                  >
+                    Scan QR
+                  </button>
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('UPI')}
-                    className={`flex-1 py-2 text-xs font-semibold rounded-lg border ${paymentMethod === 'UPI' ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' : 'border-slate-200 dark:border-slate-800'}`}
+                    className={`py-1.5 rounded-lg transition ${paymentMethod === 'UPI' ? 'bg-white text-blue-700 shadow-xs dark:bg-slate-900 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}
                   >
-                    UPI (GooglePay/PhonePe)
+                    UPI ID
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('NetBanking')}
-                    className={`flex-1 py-2 text-xs font-semibold rounded-lg border ${paymentMethod === 'NetBanking' ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' : 'border-slate-200 dark:border-slate-800'}`}
+                    className={`py-1.5 rounded-lg transition ${paymentMethod === 'NetBanking' ? 'bg-white text-blue-700 shadow-xs dark:bg-slate-900 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}
                   >
-                    NetBanking
+                    NetBank
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('Card')}
+                    className={`py-1.5 rounded-lg transition ${paymentMethod === 'Card' ? 'bg-white text-blue-700 shadow-xs dark:bg-slate-900 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}
+                  >
+                    Card
                   </button>
                 </div>
 
-                {paymentMethod === 'UPI' ? (
+                {paymentMethod === 'QR' ? (
+                  <div className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-200 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-950 text-center space-y-2">
+                    <div className="relative p-2 rounded-xl bg-white shadow-md border border-slate-200">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=upi://pay?pa=amdox.erp@razorpay&pn=AMDOX%20Enterprise&am=${displayAmount}&cu=INR`}
+                        alt="Razorpay QR Code"
+                        className="h-36 w-36 object-contain"
+                      />
+                      <div className="absolute inset-0 rounded-xl border-2 border-dashed border-blue-500/40 animate-pulse pointer-events-none" />
+                    </div>
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Scan & Pay ₹{displayAmount.toLocaleString()}</p>
+                    <div className="flex items-center justify-center gap-2 text-[10px] font-semibold text-slate-500">
+                      <span className="rounded bg-emerald-50 px-2 py-0.5 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">Google Pay</span>
+                      <span className="rounded bg-indigo-50 px-2 py-0.5 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400">PhonePe</span>
+                      <span className="rounded bg-blue-50 px-2 py-0.5 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400">Paytm</span>
+                      <span className="rounded bg-amber-50 px-2 py-0.5 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">BHIM</span>
+                    </div>
+                  </div>
+                ) : paymentMethod === 'UPI' ? (
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">UPI ID / VPA</label>
                     <input
@@ -296,8 +328,23 @@ AMDOX Enterprise Resource Planning Platform
                       placeholder="customer@okhdfcbank"
                       className="mt-1 erp-focus h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium dark:border-slate-800 dark:bg-slate-950 dark:text-white"
                     />
+                    <div className="flex gap-1.5 mt-2">
+                      {['@okhdfcbank', '@ybl', '@paytm', '@ibl'].map((suffix) => (
+                        <button
+                          key={suffix}
+                          type="button"
+                          onClick={() => {
+                            const prefix = upiId.split('@')[0] || 'user';
+                            setUpiId(`${prefix}${suffix}`);
+                          }}
+                          className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:border-blue-400 hover:text-blue-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                        >
+                          {suffix}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                ) : (
+                ) : paymentMethod === 'NetBanking' ? (
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">Select Bank</label>
                     <select
@@ -310,7 +357,49 @@ AMDOX Enterprise Resource Planning Platform
                       <option>State Bank of India (SBI)</option>
                       <option>Axis Bank</option>
                       <option>Kotak Mahindra Bank</option>
+                      <option>Punjab National Bank (PNB)</option>
                     </select>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">RuPay / Debit / Credit Card</label>
+                      <input
+                        type="text"
+                        required
+                        maxLength={19}
+                        value={cardNumber}
+                        onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim())}
+                        placeholder="5241 •••• •••• 9988"
+                        className="mt-1 erp-focus h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium tracking-wider dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">Expiry (MM/YY)</label>
+                        <input
+                          type="text"
+                          required
+                          maxLength={5}
+                          value={cardExpiry}
+                          onChange={(e) => setCardExpiry(e.target.value)}
+                          placeholder="09/29"
+                          className="mt-1 erp-focus h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">CVV Code</label>
+                        <input
+                          type="password"
+                          required
+                          maxLength={4}
+                          value={cardCvc}
+                          onChange={(e) => setCardCvc(e.target.value)}
+                          placeholder="456"
+                          className="mt-1 erp-focus h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

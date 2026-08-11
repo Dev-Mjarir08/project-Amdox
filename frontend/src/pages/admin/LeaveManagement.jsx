@@ -15,7 +15,7 @@ export default function LeaveManagement() {
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState(isEmployee ? 'all' : 'pending');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [searchText, setSearchText] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -27,31 +27,59 @@ export default function LeaveManagement() {
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/hr/leave-requests', {
-        params: {
-          status: statusFilter,
-          type: typeFilter
+      const response = await api.get('/hr/leave-requests');
+      const rawData = Array.isArray(response.data)
+        ? response.data
+        : (response.data?.data && Array.isArray(response.data.data) ? response.data.data : []);
+
+      const mapped = rawData.map(req => {
+        if (!req) return null;
+
+        let fromDateStr = '-';
+        let toDateStr = '-';
+        let daysCount = 1;
+
+        try {
+          if (req.start_date) {
+            fromDateStr = typeof req.start_date === 'string' ? req.start_date.split('T')[0] : new Date(req.start_date).toISOString().split('T')[0];
+          }
+          if (req.end_date) {
+            toDateStr = typeof req.end_date === 'string' ? req.end_date.split('T')[0] : new Date(req.end_date).toISOString().split('T')[0];
+          }
+          if (req.start_date && req.end_date) {
+            const d1 = new Date(req.start_date);
+            const d2 = new Date(req.end_date);
+            daysCount = Math.max(1, Math.ceil(Math.abs(d2 - d1) / (1000 * 60 * 60 * 24)) + 1);
+          }
+        } catch (e) {
+          // ignore date parse fallback
         }
-      });
-      if (response.data && Array.isArray(response.data)) {
-        const mapped = response.data.map(req => ({
+
+        const rawUserId = req.user_id || req.user || req.employee;
+        const userIdStr = rawUserId ? (typeof rawUserId === 'object' ? String(rawUserId._id || rawUserId) : String(rawUserId)) : '';
+        const empId = userIdStr ? userIdStr.slice(-6).toUpperCase() : 'EMP-001';
+
+        const name = req.name || (req.employee && typeof req.employee === 'object' ? req.employee.name : 'Staff Member');
+        const initials = req.initials || (name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U');
+
+        return {
           id: req.id || req._id,
-          initials: req.initials || '?',
-          name: req.name || 'Unknown',
-          employeeId: req.user_id ? req.user_id.slice(-6).toUpperCase() : 'N/A',
-          leaveType: req.type || 'Sick Leave',
-          fromDate: req.start_date ? req.start_date.split('T')[0] : '-',
-          toDate: req.end_date ? req.end_date.split('T')[0] : '-',
-          days: req.start_date && req.end_date ? Math.ceil(Math.abs(new Date(req.end_date) - new Date(req.start_date)) / (1000 * 60 * 60 * 24)) + 1 : 0,
-          reason: req.reason || '',
-          status: req.status || 'pending'
-        }));
-        setRequests(mapped);
-      } else {
-        setRequests([]);
-      }
+          initials,
+          name,
+          employeeId: empId,
+          leaveType: req.type || req.leaveType || 'Sick Leave',
+          fromDate: fromDateStr,
+          toDate: toDateStr,
+          days: daysCount,
+          reason: req.reason || 'No reason provided',
+          status: (req.status || 'pending').toLowerCase()
+        };
+      }).filter(Boolean);
+
+      setRequests(mapped);
     } catch (error) {
       console.error('Failed to fetch leave requests:', error);
+      toast.error('Failed to fetch leave requests');
       setRequests([]);
     } finally {
       setLoading(false);
@@ -87,21 +115,37 @@ export default function LeaveManagement() {
 
   const handleApprove = async (id) => {
     try {
+      toast.info("Approving leave request...");
       await api.post(`/hr/leave-requests/${id}/approve`);
+      toast.success("Leave request approved successfully!");
       fetchRequests();
     } catch (error) {
-      console.error('Failed to approve request:', error);
-      toast.error('Failed to approve request: ' + (error.response?.data?.message || error.message));
+      console.error('Failed to approve request via POST, trying PUT:', error);
+      try {
+        await api.put(`/hr/leave-requests/${id}`, { status: 'approved' });
+        toast.success("Leave request approved successfully!");
+        fetchRequests();
+      } catch (err2) {
+        toast.error('Failed to approve request: ' + (error.response?.data?.message || error.message));
+      }
     }
   };
 
   const handleReject = async (id) => {
     try {
+      toast.info("Rejecting leave request...");
       await api.post(`/hr/leave-requests/${id}/reject`);
+      toast.success("Leave request rejected!");
       fetchRequests();
     } catch (error) {
-      console.error('Failed to reject request:', error);
-      toast.error('Failed to reject request: ' + (error.response?.data?.message || error.message));
+      console.error('Failed to reject request via POST, trying PUT:', error);
+      try {
+        await api.put(`/hr/leave-requests/${id}`, { status: 'rejected' });
+        toast.success("Leave request rejected!");
+        fetchRequests();
+      } catch (err2) {
+        toast.error('Failed to reject request: ' + (error.response?.data?.message || error.message));
+      }
     }
   };
 

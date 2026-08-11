@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { FiSettings, FiUser, FiShield, FiBell, FiDatabase, FiGlobe, FiSave, FiCamera, FiEye, FiEyeOff, FiCreditCard, FiMail, FiTrash2, FiLock, FiX, FiCheck, FiRefreshCw } from 'react-icons/fi';
+import { FiSettings, FiUser, FiShield, FiBell, FiDatabase, FiGlobe, FiSave, FiCamera, FiEye, FiEyeOff, FiCreditCard, FiMail, FiTrash2, FiLock, FiX, FiCheck, FiRefreshCw, FiUserPlus, FiEdit2, FiSearch, FiFilter, FiCheckCircle, FiXCircle, FiKey } from 'react-icons/fi';
 import PageHeader from '../../components/common/PageHeader.jsx';
 import ConfirmModal from '../../components/modals/ConfirmModal.jsx';
 import useAuthStore from '../../stores/useAuthStore.js';
@@ -19,6 +19,142 @@ export default function Settings() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaveSuccess, setIsSaveSuccess] = useState(false);
+
+  // Users & Roles Management State
+  const [usersList, setUsersList] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userSearchText, setUserSearchText] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState('all');
+  const [userStatusFilter, setUserStatusFilter] = useState('all');
+
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+  const [selectedUserToEdit, setSelectedUserToEdit] = useState(null);
+
+  const [addUserForm, setAddUserForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'employee',
+    department: 'Operations',
+    title: 'Staff Member',
+  });
+
+  const [editUserForm, setEditUserForm] = useState({
+    role: 'employee',
+    status: 'active',
+    title: 'Staff Member',
+    department: 'General',
+  });
+
+  const [isSubmittingUser, setIsSubmittingUser] = useState(false);
+  const [activeRbacRole, setActiveRbacRole] = useState('admin');
+
+  const fetchUsersList = async () => {
+    try {
+      setUsersLoading(true);
+      const res = await api.get('/hr/employees');
+      const list = Array.isArray(res.data)
+        ? res.data
+        : (res.data?.data && Array.isArray(res.data.data) ? res.data.data : []);
+      setUsersList(list);
+    } catch (err) {
+      console.error('Failed to fetch users list:', err);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      fetchUsersList();
+    }
+  }, [activeTab]);
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    if (!addUserForm.name || !addUserForm.email) {
+      toast.error('Name and Email are required');
+      return;
+    }
+    try {
+      setIsSubmittingUser(true);
+      const nameParts = addUserForm.name.trim().split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ');
+
+      await api.post('/hr/employees', {
+        firstName,
+        lastName,
+        email: addUserForm.email,
+        password: addUserForm.password || 'Amdox@123',
+        role: addUserForm.role,
+        department: addUserForm.department,
+        position: addUserForm.title || 'Staff Member',
+      });
+
+      toast.success(`User account for ${addUserForm.name} created successfully!`);
+      setIsAddUserModalOpen(false);
+      setAddUserForm({ name: '', email: '', password: '', role: 'employee', department: 'Operations', title: 'Staff Member' });
+      fetchUsersList();
+    } catch (err) {
+      console.error('Failed to create user:', err);
+      toast.error(err.response?.data?.message || err.message || 'Failed to create user account');
+    } finally {
+      setIsSubmittingUser(false);
+    }
+  };
+
+  const handleOpenEditUserModal = (targetUser) => {
+    setSelectedUserToEdit(targetUser);
+    setEditUserForm({
+      role: targetUser.role || 'employee',
+      status: targetUser.status || 'active',
+      title: targetUser.title || 'Staff Member',
+      department: targetUser.department || 'General',
+    });
+    setIsEditUserModalOpen(true);
+  };
+
+  const handleUpdateUserRoleStatus = async (e) => {
+    e.preventDefault();
+    if (!selectedUserToEdit) return;
+    try {
+      setIsSubmittingUser(true);
+      await api.put(`/hr/employees/${selectedUserToEdit.id}`, {
+        role: editUserForm.role,
+        designation: editUserForm.title,
+        department: editUserForm.department,
+      });
+      await api.patch(`/hr/employees/${selectedUserToEdit.id}/status`, {
+        status: editUserForm.status,
+      });
+
+      toast.success(`User ${selectedUserToEdit.name} updated successfully!`);
+      setIsEditUserModalOpen(false);
+      setSelectedUserToEdit(null);
+      fetchUsersList();
+    } catch (err) {
+      console.error('Failed to update user:', err);
+      toast.error(err.response?.data?.message || err.message || 'Failed to update user details');
+    } finally {
+      setIsSubmittingUser(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId, userName) => {
+    if (!window.confirm(`Are you sure you want to delete user "${userName}"? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await api.delete(`/hr/employees/${userId}`);
+      toast.success(`User ${userName} deleted successfully`);
+      fetchUsersList();
+    } catch (err) {
+      console.error('Failed to delete user:', err);
+      toast.error(err.response?.data?.message || err.message || 'Failed to delete user account');
+    }
+  };
 
   const handleSaveChanges = async (overridePassword = null) => {
     if (isSaving) return;
@@ -711,13 +847,241 @@ export default function Settings() {
 
           {activeTab === 'users' && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Users & Roles</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Manage user accounts and role permissions</p>
-              
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
-                <p className="text-sm text-slate-600 dark:text-slate-300">
-                  User management interface will be integrated with backend API
-                </p>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Users & Roles Management</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Manage user accounts, assign system roles, and configure RBAC permissions</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAddUserModalOpen(true)}
+                  className="erp-focus inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700"
+                >
+                  <FiUserPlus className="h-4 w-4" />
+                  Add New User
+                </button>
+              </div>
+
+              {/* Filters & Search Toolbar */}
+              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-900/50">
+                <div className="relative flex-1 min-w-[200px]">
+                  <FiSearch className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search users by name, email, or role..."
+                    value={userSearchText}
+                    onChange={(e) => setUserSearchText(e.target.value)}
+                    className="erp-focus h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <FiFilter className="h-3.5 w-3.5 text-slate-400" />
+                  <select
+                    value={userRoleFilter}
+                    onChange={(e) => setUserRoleFilter(e.target.value)}
+                    className="erp-focus h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                  >
+                    <option value="all">All Roles</option>
+                    <option value="admin">Admin</option>
+                    <option value="hr">HR</option>
+                    <option value="manager">Manager</option>
+                    <option value="employee">Employee</option>
+                  </select>
+                  <select
+                    value={userStatusFilter}
+                    onChange={(e) => setUserStatusFilter(e.target.value)}
+                    className="erp-focus h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="deactivated">Deactivated</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Users Table */}
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
+                {usersLoading ? (
+                  <div className="flex h-48 items-center justify-center gap-2 text-xs text-slate-400">
+                    <FiRefreshCw className="h-4 w-4 animate-spin text-primary" /> Loading user accounts...
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-800/40">
+                          <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">User Details</th>
+                          <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Role</th>
+                          <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Department & Title</th>
+                          <th className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-200">Status</th>
+                          <th className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-200">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {usersList.filter(u => {
+                          const matchesSearch = (u.name || '').toLowerCase().includes(userSearchText.toLowerCase()) ||
+                                                (u.email || '').toLowerCase().includes(userSearchText.toLowerCase()) ||
+                                                (u.role || '').toLowerCase().includes(userSearchText.toLowerCase());
+                          const matchesRole = userRoleFilter === 'all' || (u.role || '').toLowerCase() === userRoleFilter.toLowerCase();
+                          const matchesStatus = userStatusFilter === 'all' || (u.status || 'active').toLowerCase() === userStatusFilter.toLowerCase();
+                          return matchesSearch && matchesRole && matchesStatus;
+                        }).length === 0 ? (
+                          <tr>
+                            <td colSpan="5" className="py-8 text-center text-slate-400">
+                              No user accounts found matching selected criteria.
+                            </td>
+                          </tr>
+                        ) : (
+                          usersList.filter(u => {
+                            const matchesSearch = (u.name || '').toLowerCase().includes(userSearchText.toLowerCase()) ||
+                                                  (u.email || '').toLowerCase().includes(userSearchText.toLowerCase()) ||
+                                                  (u.role || '').toLowerCase().includes(userSearchText.toLowerCase());
+                            const matchesRole = userRoleFilter === 'all' || (u.role || '').toLowerCase() === userRoleFilter.toLowerCase();
+                            const matchesStatus = userStatusFilter === 'all' || (u.status || 'active').toLowerCase() === userStatusFilter.toLowerCase();
+                            return matchesSearch && matchesRole && matchesStatus;
+                          }).map((u) => {
+                            const roleColors = {
+                              admin: 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-200',
+                              hr: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300 border-cyan-200',
+                              manager: 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200',
+                              employee: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200',
+                            };
+
+                            return (
+                              <tr key={u.id} className="hover:bg-slate-50/50 transition dark:hover:bg-slate-800/30">
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 text-xs font-bold text-white overflow-hidden shadow-xs shrink-0">
+                                      {u.profileImage ? (
+                                        <img src={getImageUrl(u.profileImage)} alt="Avatar" className="h-full w-full object-cover" />
+                                      ) : (
+                                        u.initials || u.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'
+                                      )}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">{u.name}</p>
+                                      <p className="text-[11px] text-slate-400 truncate">{u.email}</p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${roleColors[u.role?.toLowerCase()] || roleColors.employee}`}>
+                                    {u.role}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <p className="font-medium text-slate-800 dark:text-slate-200">{u.title || 'Staff Member'}</p>
+                                  <p className="text-[11px] text-slate-400">{u.department || 'General'}</p>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                                    u.status === 'active'
+                                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+                                      : 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
+                                  }`}>
+                                    <span className={`h-1.5 w-1.5 rounded-full ${u.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                    {u.status || 'active'}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEditUserModal(u)}
+                                      className="erp-focus flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-100 hover:text-primary dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
+                                      title="Edit Role & Permissions"
+                                    >
+                                      <FiEdit2 className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteUser(u.id, u.name)}
+                                      className="erp-focus flex h-7 w-7 items-center justify-center rounded-md border border-rose-200 text-rose-600 transition hover:bg-rose-50 dark:border-rose-900/40 dark:text-rose-400 dark:hover:bg-rose-950/30"
+                                      title="Delete Account"
+                                    >
+                                      <FiTrash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* RBAC Role Permissions Matrix Card */}
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                      <FiShield className="h-4 w-4 text-primary" /> Role-Based Access Control (RBAC) Matrix
+                    </h4>
+                    <p className="text-xs text-slate-500">Security permissions breakdown per system role</p>
+                  </div>
+                  <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-800/50">
+                    {['admin', 'hr', 'manager', 'employee'].map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setActiveRbacRole(r)}
+                        className={`rounded-md px-3 py-1 text-xs font-bold uppercase transition ${
+                          activeRbacRole === r
+                            ? 'bg-primary text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {({
+                    admin: [
+                      { name: "Full System Access", desc: "Complete administrative control over all modules" },
+                      { name: "User & Role Management", desc: "Create, edit, suspend, and delete user accounts" },
+                      { name: "Financial Ledger & Reports", desc: "Full access to General Ledger, AR, AP, and financial statements" },
+                      { name: "Payroll & Compensation", desc: "Manage employee salaries, bonuses, and process payroll" },
+                      { name: "Inventory & Supply Chain", desc: "Manage stock levels, purchase orders, and vendor relationships" },
+                      { name: "CRM & Sales Operations", desc: "Manage customer leads, deals, and sales pipelines" },
+                      { name: "System Settings & Integrations", desc: "Configure API keys, payment gateways, and security policies" },
+                    ],
+                    hr: [
+                      { name: "Employee Directory Management", desc: "Create and update employee records and departments" },
+                      { name: "Attendance & Leave Approval", desc: "Review and approve employee leave requests and attendance logs" },
+                      { name: "Recruitment & Onboarding", desc: "Post job openings, track applicants, and manage hiring" },
+                      { name: "Payroll Processing", desc: "View and edit employee payroll details and generate pay slips" },
+                      { name: "Training & Performance", desc: "Assign training programs and conduct performance reviews" },
+                    ],
+                    manager: [
+                      { name: "Team Employee Directory", desc: "View department team members and contact details" },
+                      { name: "Task & Project Management", desc: "Assign tasks, set milestones, and track project timelines" },
+                      { name: "Leave & Attendance Review", desc: "Approve or reject leave applications for direct reports" },
+                      { name: "Performance Evaluations", desc: "Conduct performance appraisals for team members" },
+                      { name: "CRM Lead Tracking", desc: "Manage assigned customer accounts and sales opportunities" },
+                    ],
+                    employee: [
+                      { name: "Self-Service Profile Portal", desc: "Update personal profile, contact info, and view employment status" },
+                      { name: "Leave Application", desc: "Submit leave requests and view leave balance" },
+                      { name: "Clock-In / Clock-Out", desc: "Log daily work attendance and view attendance history" },
+                      { name: "My Assigned Tasks", desc: "View and update status of individual tasks" },
+                      { name: "Company Documents & Holidays", desc: "Access shared enterprise documents and holiday calendar" },
+                    ],
+                  }[activeRbacRole] || []).map((perm, idx) => (
+                    <div key={idx} className="flex items-start gap-2.5 rounded-lg border border-slate-100 bg-slate-50/50 p-3 dark:border-slate-800/80 dark:bg-slate-800/30">
+                      <FiCheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                      <div>
+                        <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{perm.name}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{perm.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -1273,6 +1637,222 @@ export default function Settings() {
                 Confirm & Update Email
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add User Modal */}
+      {isAddUserModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-primary dark:bg-blue-950/50">
+                  <FiUserPlus className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Create New User Account</h3>
+                  <p className="text-xs text-slate-500">Provision a new user account with role access</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAddUserModalOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+              >
+                <FiX className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateUser} className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Rahul Sharma"
+                  value={addUserForm.name}
+                  onChange={(e) => setAddUserForm({ ...addUserForm, name: e.target.value })}
+                  className="erp-focus h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. rahul.sharma@amdoxerp.com"
+                  value={addUserForm.email}
+                  onChange={(e) => setAddUserForm({ ...addUserForm, email: e.target.value })}
+                  className="erp-focus h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">Temporary Password</label>
+                  <input
+                    type="password"
+                    placeholder="Defaults to Amdox@123"
+                    value={addUserForm.password}
+                    onChange={(e) => setAddUserForm({ ...addUserForm, password: e.target.value })}
+                    className="erp-focus h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">Assign System Role</label>
+                  <select
+                    value={addUserForm.role}
+                    onChange={(e) => setAddUserForm({ ...addUserForm, role: e.target.value })}
+                    className="erp-focus h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs font-semibold dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                  >
+                    <option value="admin">Admin (Full Control)</option>
+                    <option value="hr">HR (People & Payroll)</option>
+                    <option value="manager">Manager (Projects & Tasks)</option>
+                    <option value="employee">Employee (Self-Service)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">Department</label>
+                  <select
+                    value={addUserForm.department}
+                    onChange={(e) => setAddUserForm({ ...addUserForm, department: e.target.value })}
+                    className="erp-focus h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                  >
+                    <option value="Finance">Finance</option>
+                    <option value="Human Resources">Human Resources</option>
+                    <option value="Supply Chain">Supply Chain</option>
+                    <option value="IT">IT</option>
+                    <option value="Operations">Operations</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">Job Title</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Senior Specialist"
+                    value={addUserForm.title}
+                    onChange={(e) => setAddUserForm({ ...addUserForm, title: e.target.value })}
+                    className="erp-focus h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAddUserModalOpen(false)}
+                  className="flex-1 h-10 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingUser}
+                  className="flex-1 h-10 rounded-xl bg-primary px-4 text-xs font-bold text-white shadow-md hover:bg-blue-700 disabled:opacity-50 transition"
+                >
+                  {isSubmittingUser ? 'Creating User...' : 'Provision User'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {isEditUserModalOpen && selectedUserToEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/50">
+                  <FiEdit2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Edit User Access & Role</h3>
+                  <p className="text-xs text-slate-500">{selectedUserToEdit.name} ({selectedUserToEdit.email})</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsEditUserModalOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+              >
+                <FiX className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateUserRoleStatus} className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">System Role</label>
+                <select
+                  value={editUserForm.role}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, role: e.target.value })}
+                  className="erp-focus h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs font-bold dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                >
+                  <option value="admin">Admin (Full System Control)</option>
+                  <option value="hr">HR (People, Recruitment & Payroll)</option>
+                  <option value="manager">Manager (Projects, Tasks & Approvals)</option>
+                  <option value="employee">Employee (Self-Service Portal)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">Account Status</label>
+                <select
+                  value={editUserForm.status}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, status: e.target.value })}
+                  className="erp-focus h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs font-bold dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                >
+                  <option value="active">Active (Access Granted)</option>
+                  <option value="deactivated">Deactivated (Access Suspended)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">Job Designation</label>
+                <input
+                  type="text"
+                  value={editUserForm.title}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, title: e.target.value })}
+                  className="erp-focus h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">Department</label>
+                <select
+                  value={editUserForm.department}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, department: e.target.value })}
+                  className="erp-focus h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                >
+                  <option value="Finance">Finance</option>
+                  <option value="Human Resources">Human Resources</option>
+                  <option value="Supply Chain">Supply Chain</option>
+                  <option value="IT">IT</option>
+                  <option value="Operations">Operations</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsEditUserModalOpen(false)}
+                  className="flex-1 h-10 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingUser}
+                  className="flex-1 h-10 rounded-xl bg-primary px-4 text-xs font-bold text-white shadow-md hover:bg-blue-700 disabled:opacity-50 transition"
+                >
+                  {isSubmittingUser ? 'Saving...' : 'Update Account'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -11,12 +11,13 @@ import { toast } from 'react-toastify';
 export default function Settings() {
   const [searchParams] = useSearchParams();
   const user = useAuthStore((state) => state.user);
-  const [activeTab, setActiveTab] = useState('general');
+  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'profile');
   const [profileImage, setProfileImage] = useState(null);
   const [isDeleteImageModalOpen, setIsDeleteImageModalOpen] = useState(false);
   const [deletingImage, setDeletingImage] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaveSuccess, setIsSaveSuccess] = useState(false);
 
@@ -203,6 +204,14 @@ export default function Settings() {
         toast.success('Profile details updated successfully!');
         setIsEmailModalOpen(false);
         setEmailConfirmPassword('');
+        setIsSaveSuccess(true);
+        setTimeout(() => setIsSaveSuccess(false), 2500);
+      } else if (activeTab === 'account') {
+        if (currentPassword || newPassword || confirmNewPassword) {
+          await handleUpdatePassword();
+        } else {
+          toast.success('Account settings saved successfully!');
+        }
         setIsSaveSuccess(true);
         setTimeout(() => setIsSaveSuccess(false), 2500);
       } else if (activeTab === 'integrations') {
@@ -787,6 +796,10 @@ export default function Settings() {
                       </button>
                     </div>
                   </div>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-800">
+                  <SaveButton />
                 </div>
               </div>
             </div>

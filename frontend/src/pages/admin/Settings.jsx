@@ -518,36 +518,36 @@ export default function Settings() {
         }
       />
 
-      <div className="flex gap-6">
-        <div className="w-64 shrink-0">
-          <nav className="space-y-1">
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="w-full lg:w-64 shrink-0">
+          <nav className="flex lg:flex-col overflow-x-auto pb-2 lg:pb-0 gap-1.5 scrollbar-none">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`erp-focus w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                  className={`erp-focus whitespace-nowrap flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold transition ${
                     activeTab === tab.id
-                      ? 'bg-primary text-white'
-                      : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+                      ? 'bg-primary text-white shadow-md shadow-blue-600/20'
+                      : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 bg-white/70 dark:bg-slate-900/60 lg:bg-transparent lg:dark:bg-transparent'
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
-                  {tab.label}
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span>{tab.label}</span>
                 </button>
               );
             })}
           </nav>
         </div>
 
-        <div className="flex-1 rounded-xl border border-white/70 bg-white/85 p-6 shadow-soft backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+        <div className="flex-1 rounded-xl border border-white/70 bg-white/85 p-4 sm:p-6 shadow-soft backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
           {activeTab === 'profile' && (
             <div className="space-y-6">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">My Profile</h3>
               
-              <div className="flex items-start gap-6">
-                <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                <div className="flex flex-col items-center gap-2 shrink-0">
                   <div className="relative">
                     <div className="h-24 w-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl font-bold text-white overflow-hidden shadow-md">
                       {profileImage ? (
@@ -577,7 +577,7 @@ export default function Settings() {
                     </button>
                   )}
                 </div>
-                <div className="flex-1 space-y-4">
+                <div className="flex-1 w-full space-y-4">
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">
                       Full Name
@@ -745,21 +745,21 @@ export default function Settings() {
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
                   <h4 className="mb-3 font-semibold text-slate-900 dark:text-slate-100">Email Preferences</h4>
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                       <div>
                         <p className="font-medium text-slate-900 dark:text-slate-100">Receive email notifications</p>
                         <p className="text-sm text-slate-500 dark:text-slate-400">Get notified about important updates</p>
                       </div>
-                      <button className="erp-focus h-11 w-16 rounded-xl bg-primary text-sm font-semibold text-white transition hover:bg-blue-700">
+                      <button className="erp-focus h-10 w-16 shrink-0 rounded-xl bg-primary text-xs font-semibold text-white transition hover:bg-blue-700">
                         ON
                       </button>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                       <div>
                         <p className="font-medium text-slate-900 dark:text-slate-100">Weekly digest</p>
                         <p className="text-sm text-slate-500 dark:text-slate-400">Receive weekly summary emails</p>
                       </div>
-                      <button className="erp-focus h-11 w-16 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 shadow-sm transition hover:border-primary/40 hover:text-primary dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                      <button className="erp-focus h-10 w-16 shrink-0 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 shadow-sm transition hover:border-primary/40 hover:text-primary dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
                         OFF
                       </button>
                     </div>
@@ -769,7 +769,7 @@ export default function Settings() {
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
                   <h4 className="mb-3 font-semibold text-slate-900 dark:text-slate-100">Danger Zone</h4>
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                       <div>
                         <p className="font-medium text-slate-900 dark:text-slate-100">Deactivate Account</p>
                         <p className="text-sm text-slate-500 dark:text-slate-400">Temporarily disable your account for a set timeframe</p>
@@ -777,12 +777,12 @@ export default function Settings() {
                       <button
                         type="button"
                         onClick={() => setShowDeactivateModal(true)}
-                        className="erp-focus rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 shadow-sm transition hover:border-amber-400 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400"
+                        className="erp-focus shrink-0 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-700 shadow-sm transition hover:border-amber-400 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400"
                       >
                         Deactivate
                       </button>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                       <div>
                         <p className="font-medium text-rose-900 dark:text-rose-100">Delete Account</p>
                         <p className="text-sm text-slate-500 dark:text-slate-400">Permanently purge your account data from MongoDB</p>
@@ -790,7 +790,7 @@ export default function Settings() {
                       <button
                         type="button"
                         onClick={() => setShowDeleteModal(true)}
-                        className="erp-focus rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 shadow-sm transition hover:border-rose-400 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-400"
+                        className="erp-focus shrink-0 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-700 shadow-sm transition hover:border-rose-400 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-400"
                       >
                         Delete
                       </button>

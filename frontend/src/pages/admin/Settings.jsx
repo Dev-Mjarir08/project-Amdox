@@ -21,6 +21,22 @@ export default function Settings() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSaveSuccess, setIsSaveSuccess] = useState(false);
 
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const storedTheme = window.localStorage.getItem("amdox-theme");
+    return storedTheme ? storedTheme === "dark" : document.documentElement.classList.contains("dark");
+  });
+
+  const toggleDarkMode = () => {
+    setIsDarkMode((prev) => {
+      const nextTheme = !prev;
+      document.documentElement.classList.toggle("dark", nextTheme);
+      window.localStorage.setItem("amdox-theme", nextTheme ? "dark" : "light");
+      toast.info(`Switched to ${nextTheme ? 'Dark' : 'Light'} Mode`);
+      return nextTheme;
+    });
+  };
+
   // Users & Roles Management State
   const [usersList, setUsersList] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -1446,10 +1462,18 @@ export default function Settings() {
                 <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
                   <div>
                     <p className="font-semibold text-slate-900 dark:text-slate-100">Dark Mode</p>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Use dark theme</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Toggle between Light and Dark theme</p>
                   </div>
-                  <button className="erp-focus h-11 w-16 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 shadow-sm transition hover:border-primary/40 hover:text-primary dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
-                    OFF
+                  <button
+                    type="button"
+                    onClick={toggleDarkMode}
+                    className={`erp-focus inline-flex h-10 min-w-24 items-center justify-center rounded-xl px-4 text-xs font-bold transition shadow-sm ${
+                      isDarkMode
+                        ? 'bg-indigo-600 text-white shadow-indigo-600/20 hover:bg-indigo-700'
+                        : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
+                    }`}
+                  >
+                    {isDarkMode ? 'ON (Dark)' : 'OFF (Light)'}
                   </button>
                 </div>
 

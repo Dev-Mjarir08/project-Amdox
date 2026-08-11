@@ -1196,7 +1196,7 @@ export default function Settings() {
 
           {activeTab === 'integrations' && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Integrations & Payment Gateways</h3>
                   <p className="text-xs text-slate-500">Configure Stripe, Razorpay, Nodemailer SMTP, and Enterprise SSO connections</p>
@@ -1204,7 +1204,7 @@ export default function Settings() {
                 <button
                   type="button"
                   onClick={handleSaveIntegrations}
-                  className="erp-focus inline-flex h-9 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-white shadow-md hover:bg-blue-700 transition"
+                  className="erp-focus inline-flex h-9 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-white shadow-md hover:bg-blue-700 transition shrink-0 self-start sm:self-auto"
                 >
                   <FiSave className="h-3.5 w-3.5" />
                   Save Integration Keys
@@ -1213,24 +1213,24 @@ export default function Settings() {
               
               <div className="space-y-5">
                 {/* 1. Stripe Payment Gateway Config */}
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900/50 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5 dark:border-slate-800 dark:bg-slate-900/50 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 pb-3 dark:border-slate-800/60">
+                    <div className="flex items-start sm:items-center gap-3">
+                      <div className="rounded-lg bg-primary/10 p-2 text-primary shrink-0 mt-0.5 sm:mt-0">
                         <FiCreditCard className="h-5 w-5" />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-slate-900 dark:text-slate-100">Stripe Payment Gateway</p>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-bold text-slate-900 dark:text-slate-100 text-sm sm:text-base">Stripe Payment Gateway</p>
                           <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-extrabold ${stripeConfig.enabled ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-200 text-slate-700'}`}>
                             {stripeConfig.enabled ? 'Active' : 'Disabled'}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-500">Global Credit/Debit Cards, Apple Pay & Google Pay</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Global Credit/Debit Cards, Apple Pay & Google Pay</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleTestIntegration('Stripe Gateway')}
@@ -1248,7 +1248,7 @@ export default function Settings() {
                     </div>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2 pt-2">
+                  <div className="grid gap-3 sm:grid-cols-2 pt-1">
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">Stripe Publishable Key</label>
                       <input
@@ -1280,24 +1280,24 @@ export default function Settings() {
                 </div>
 
                 {/* 2. Razorpay Payment Gateway Config */}
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900/50 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-lg bg-blue-500/10 p-2 text-blue-600">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5 dark:border-slate-800 dark:bg-slate-900/50 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 pb-3 dark:border-slate-800/60">
+                    <div className="flex items-start sm:items-center gap-3">
+                      <div className="rounded-lg bg-blue-500/10 p-2 text-blue-600 shrink-0 mt-0.5 sm:mt-0">
                         <FiCreditCard className="h-5 w-5" />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-slate-900 dark:text-slate-100">Razorpay Payment Gateway</p>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-bold text-slate-900 dark:text-slate-100 text-sm sm:text-base">Razorpay Payment Gateway</p>
                           <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-extrabold ${razorpayConfig.enabled ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-200 text-slate-700'}`}>
                             {razorpayConfig.enabled ? 'Active' : 'Disabled'}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-500">UPI, NetBanking, Wallets & India Cards</p>
+                        <p className="text-xs text-slate-500 mt-0.5">UPI, NetBanking, Wallets & India Cards</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleTestIntegration('Razorpay Gateway')}
@@ -1315,7 +1315,7 @@ export default function Settings() {
                     </div>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2 pt-2">
+                  <div className="grid gap-3 sm:grid-cols-2 pt-1">
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">Razorpay Key ID</label>
                       <input
@@ -1347,24 +1347,24 @@ export default function Settings() {
                 </div>
 
                 {/* 3. Nodemailer SMTP Config */}
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900/50 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-600">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5 dark:border-slate-800 dark:bg-slate-900/50 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 pb-3 dark:border-slate-800/60">
+                    <div className="flex items-start sm:items-center gap-3">
+                      <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-600 shrink-0 mt-0.5 sm:mt-0">
                         <FiMail className="h-5 w-5" />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-slate-900 dark:text-slate-100">Nodemailer SMTP Email Service</p>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-bold text-slate-900 dark:text-slate-100 text-sm sm:text-base">Nodemailer SMTP Email Service</p>
                           <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-extrabold ${smtpConfig.enabled ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-200 text-slate-700'}`}>
                             {smtpConfig.enabled ? 'Active' : 'Disabled'}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-500">Automated OTP verification, invoices & notification emails</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Automated OTP verification, invoices & notification emails</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleTestIntegration('Nodemailer SMTP')}
@@ -1382,7 +1382,7 @@ export default function Settings() {
                     </div>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2 pt-2">
+                  <div className="grid gap-3 sm:grid-cols-2 pt-1">
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">SMTP Host & Port</label>
                       <div className="flex gap-2 mt-1">
@@ -1391,14 +1391,14 @@ export default function Settings() {
                           value={smtpConfig.host}
                           onChange={(e) => setSmtpConfig({ ...smtpConfig, host: e.target.value })}
                           placeholder="smtp.gmail.com"
-                          className="erp-focus h-10 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-xs dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                          className="erp-focus h-10 flex-1 min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-xs dark:border-slate-800 dark:bg-slate-950 dark:text-white"
                         />
                         <input
                           type="text"
                           value={smtpConfig.port}
                           onChange={(e) => setSmtpConfig({ ...smtpConfig, port: e.target.value })}
                           placeholder="465"
-                          className="erp-focus h-10 w-20 rounded-xl border border-slate-200 bg-white px-3 text-xs text-center dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                          className="erp-focus h-10 w-20 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs text-center dark:border-slate-800 dark:bg-slate-950 dark:text-white"
                         />
                       </div>
                     </div>
@@ -1415,24 +1415,24 @@ export default function Settings() {
                 </div>
 
                 {/* 4. Keycloak SSO Config */}
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900/50 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-lg bg-amber-500/10 p-2 text-amber-600">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5 dark:border-slate-800 dark:bg-slate-900/50 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 pb-3 dark:border-slate-800/60">
+                    <div className="flex items-start sm:items-center gap-3">
+                      <div className="rounded-lg bg-amber-500/10 p-2 text-amber-600 shrink-0 mt-0.5 sm:mt-0">
                         <FiShield className="h-5 w-5" />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-slate-900 dark:text-slate-100">Keycloak Single Sign-On (SSO)</p>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-bold text-slate-900 dark:text-slate-100 text-sm sm:text-base">Keycloak Single Sign-On (SSO)</p>
                           <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-extrabold ${ssoConfig.enabled ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-200 text-slate-700'}`}>
                             {ssoConfig.enabled ? 'Active' : 'Disabled'}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-500">Enterprise identity provider & OpenID Connect</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Enterprise identity provider & OpenID Connect</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleTestIntegration('Keycloak SSO')}

@@ -42,9 +42,18 @@ const getAttendanceLogs = async (req, res, next) => {
       }
     });
 
+    const formatMinutesToHumanReadable = (totalMinutes) => {
+      if (!totalMinutes || totalMinutes <= 0) return "-";
+      const hrs = Math.floor(totalMinutes / 60);
+      const mins = totalMinutes % 60;
+      if (hrs === 0) return `${mins} mins`;
+      if (mins === 0) return `${hrs} hour${hrs === 1 ? "" : "s"}`;
+      return `${hrs} hour${hrs === 1 ? "" : "s"} ${mins} mins`;
+    };
+
     const mapped = logs.map((log) => {
       if (!log.employee) return null;
-      
+
       let departmentName = "General";
       let employeeCustomId = log.employee._id.toString().slice(-6).toUpperCase();
       const empInfo = employeeMap.get(log.employee._id.toString());
@@ -54,6 +63,30 @@ const getAttendanceLogs = async (req, res, next) => {
         }
         if (empInfo.employeeId) {
           employeeCustomId = empInfo.employeeId;
+        }
+      }
+
+      let durationFormatted = "-";
+      let overtimeFormatted = "-";
+
+      if (log.checkIn && log.checkOut && log.checkIn !== "-" && log.checkOut !== "-") {
+        const parseSecs = (t) => {
+          const parts = String(t).split(":").map(Number);
+          return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+        };
+        let diff = parseSecs(log.checkOut) - parseSecs(log.checkIn);
+        if (diff < 0) diff += 24 * 3600;
+        const totalMins = Math.floor(diff / 60);
+        durationFormatted = formatMinutesToHumanReadable(totalMins);
+
+        if (totalMins > 480) {
+          overtimeFormatted = formatMinutesToHumanReadable(totalMins - 480);
+        }
+      } else if (log.totalHours && log.totalHours > 0) {
+        const totalMins = Math.round(log.totalHours * 60);
+        durationFormatted = formatMinutesToHumanReadable(totalMins);
+        if (totalMins > 480) {
+          overtimeFormatted = formatMinutesToHumanReadable(totalMins - 480);
         }
       }
 
@@ -69,6 +102,8 @@ const getAttendanceLogs = async (req, res, next) => {
         check_out: log.checkOut,
         status: log.status,
         hours_worked: log.totalHours,
+        duration_formatted: durationFormatted,
+        overtime_formatted: overtimeFormatted,
         createdAt: log.createdAt,
         updatedAt: log.updatedAt,
       };

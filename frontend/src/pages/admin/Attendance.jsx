@@ -155,6 +155,77 @@ export default function Attendance() {
     return rawTime;
   };
 
+  const formatExactDuration = (log) => {
+    if (log.duration_formatted && log.duration_formatted !== '-') return log.duration_formatted;
+
+    const checkIn = log.check_in || log.checkIn;
+    const checkOut = log.check_out || log.checkOut;
+
+    if (checkIn && checkOut && checkIn !== '-' && checkOut !== '-') {
+      const parseSecs = (t) => {
+        const parts = String(t).split(':').map(Number);
+        return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+      };
+      let diff = parseSecs(checkOut) - parseSecs(checkIn);
+      if (diff < 0) diff += 24 * 3600;
+      const totalMins = Math.floor(diff / 60);
+
+      if (totalMins > 0) {
+        const hrs = Math.floor(totalMins / 60);
+        const mins = totalMins % 60;
+        if (hrs === 0) return `${mins} mins`;
+        if (mins === 0) return `${hrs} hour${hrs === 1 ? '' : 's'}`;
+        return `${hrs} hour${hrs === 1 ? '' : 's'} ${mins} mins`;
+      }
+    }
+
+    const decimalHours = log.hours_worked !== undefined && log.hours_worked !== null ? log.hours_worked : (log.totalHours || log.hours || 0);
+    if (decimalHours && decimalHours > 0) {
+      const totalMins = Math.round(decimalHours * 60);
+      const hrs = Math.floor(totalMins / 60);
+      const mins = totalMins % 60;
+      if (hrs === 0) return `${mins} mins`;
+      if (mins === 0) return `${hrs} hour${hrs === 1 ? '' : 's'}`;
+      return `${hrs} hour${hrs === 1 ? '' : 's'} ${mins} mins`;
+    }
+
+    return '-';
+  };
+
+  const formatExactOvertime = (log) => {
+    if (log.overtime_formatted && log.overtime_formatted !== '-') return log.overtime_formatted;
+
+    const checkIn = log.check_in || log.checkIn;
+    const checkOut = log.check_out || log.checkOut;
+
+    let totalMins = 0;
+    if (checkIn && checkOut && checkIn !== '-' && checkOut !== '-') {
+      const parseSecs = (t) => {
+        const parts = String(t).split(':').map(Number);
+        return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+      };
+      let diff = parseSecs(checkOut) - parseSecs(checkIn);
+      if (diff < 0) diff += 24 * 3600;
+      totalMins = Math.floor(diff / 60);
+    } else {
+      const decimalHours = log.hours_worked !== undefined && log.hours_worked !== null ? log.hours_worked : (log.totalHours || log.hours || 0);
+      if (decimalHours && decimalHours > 0) {
+        totalMins = Math.round(decimalHours * 60);
+      }
+    }
+
+    if (totalMins > 480) {
+      const otMins = totalMins - 480;
+      const hrs = Math.floor(otMins / 60);
+      const mins = otMins % 60;
+      if (hrs === 0) return `${mins} mins`;
+      if (mins === 0) return `${hrs} hour${hrs === 1 ? '' : 's'}`;
+      return `${hrs} hour${hrs === 1 ? '' : 's'} ${mins} mins`;
+    }
+
+    return '-';
+  };
+
   const fetchAttendance = async () => {
     try {
       setLoading(true);
@@ -178,7 +249,6 @@ export default function Attendance() {
         const name = log.name || (log.employee && typeof log.employee === 'object' ? log.employee.name : 'Unknown Employee');
         const initials = log.initials || (name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U');
         const empId = log.employeeId || (log.user_id ? String(log.user_id).slice(-6).toUpperCase() : 'EMP-001');
-        const hoursWorked = log.hours_worked !== undefined && log.hours_worked !== null ? log.hours_worked : (log.totalHours || log.hours || 0);
 
         return {
           id: log.id || log._id,
@@ -188,8 +258,8 @@ export default function Attendance() {
           department: log.department || 'General',
           clockIn: formatDisplayTime(log.check_in || log.checkIn, log.createdAt),
           clockOut: formatDisplayTime(log.check_out || log.checkOut, log.checkOut ? log.updatedAt : null),
-          hours: hoursWorked ? `${hoursWorked}h` : '-',
-          overtime: hoursWorked > 8 ? `${(hoursWorked - 8).toFixed(1)} hrs` : '-',
+          hours: formatExactDuration(log),
+          overtime: formatExactOvertime(log),
           status: (log.status || 'present').toLowerCase()
         };
       }).filter(Boolean);

@@ -129,8 +129,18 @@ const getClockInStatus = async (req, res, next) => {
 const clockIn = async (req, res, next) => {
   try {
     const today = new Date().toISOString().split("T")[0];
-    const checkInTime = new Date().toTimeString().split(" ")[0]; // HH:MM:SS
-    const status = req.body.status || "present";
+    const now = new Date();
+    // Format checkInTime as HH:MM:SS
+    const checkInTime = now.toTimeString().split(" ")[0];
+
+    // Evaluate Late Arrival: Shift starts at 9:00 AM, 15 mins grace period (9:15 AM = 555 mins)
+    const [h, m] = checkInTime.split(":").map(Number);
+    const totalMinutes = (h || 0) * 60 + (m || 0);
+
+    let status = req.body.status || "present";
+    if (status === "present" || !req.body.status) {
+      status = totalMinutes > 555 ? "late" : "present";
+    }
 
     // Check if already clocked in today
     const existing = await Attendance.findOne({
@@ -158,9 +168,11 @@ const clockIn = async (req, res, next) => {
 
     await log.save();
 
+    const isLateMsg = status === "late" ? " (Marked Late - Clocked in after 9:15 AM)" : " (On Time)";
+
     res.status(201).json({
       success: true,
-      message: "Clocked in successfully.",
+      message: `Clocked in successfully${isLateMsg}.`,
       data: {
         id: log._id,
         user_id: log.employee,
@@ -241,9 +253,18 @@ const markAttendance = async (req, res, next) => {
     const { userId, date, status, checkIn, checkOut } = req.body;
     const targetUser = userId || req.user._id;
     const recordDate = date || new Date().toISOString().split("T")[0];
-    const statusVal = status || "present";
     const inTime = checkIn || "09:00:00";
     const outTime = checkOut || "17:00:00";
+
+    // Evaluate Late Arrival for manual entry: Cutoff at 9:15 AM (555 mins)
+    let statusVal = status || "present";
+    if (statusVal === "present" && inTime) {
+      const [h, m] = inTime.split(":").map(Number);
+      const totalMins = (h || 0) * 60 + (m || 0);
+      if (totalMins > 555) {
+        statusVal = "late";
+      }
+    }
 
     let log = await Attendance.findOne({ employee: targetUser, date: recordDate });
     if (log) {
@@ -266,7 +287,7 @@ const markAttendance = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: "Attendance marked successfully.",
+      message: `Attendance marked successfully as ${statusVal.toUpperCase()}.`,
       data: log,
       errors: [],
       timestamp: new Date().toISOString()

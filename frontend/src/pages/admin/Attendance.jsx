@@ -207,11 +207,16 @@ export default function Attendance() {
       <div className="rounded-xl border border-white/70 bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white shadow-soft backdrop-blur-xl dark:border-slate-800">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h3 className="text-lg font-bold">Punch In / Punch Out Portal</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-bold">Punch In / Punch Out Portal</h3>
+              <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-extrabold backdrop-blur-md">
+                Standard Shift: 9:00 AM (15m Grace Cutoff: 9:15 AM)
+              </span>
+            </div>
             <p className="text-xs opacity-90 mt-1">
               {clockedIn
                 ? `Active Session: Clocked in today at ${todayRecord?.check_in || todayRecord?.checkIn || '-'}`
-                : 'Start your shift today by clicking Punch In.'}
+                : 'Shift starts at 9:00 AM with a 15-minute grace period. Punch in after 9:15 AM is automatically marked as Late Arrival.'}
             </p>
           </div>
           <div>

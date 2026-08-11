@@ -27,7 +27,7 @@ const getAdminDashboardStats = async (req, res, next) => {
       remoteToday,
       leaveRequests
     ] = await Promise.all([
-      User.countDocuments({ status: "active" }),
+      (await Employee.countDocuments()) || (await User.countDocuments({ role: "employee" })),
       Project.countDocuments({ status: "Active" }),
       Task.countDocuments({ status: { $ne: "completed" } }),
       Inventory.find(),
@@ -374,7 +374,8 @@ const getDashboardStats = async (req, res, next) => {
     let statCards = [];
 
     if (role === "admin") {
-      const totalEmployees = await User.countDocuments();
+      const empCount = await Employee.countDocuments();
+      const totalEmployees = empCount > 0 ? empCount : await User.countDocuments({ role: "employee" });
       const activeProjectsCount = await Project.countDocuments({ status: "Active" });
       const pendingTasksTotal = await Task.countDocuments({ status: { $ne: "completed" } });
 
@@ -405,7 +406,8 @@ const getDashboardStats = async (req, res, next) => {
     }
 
     if (role === "hr") {
-      const totalEmployees = await User.countDocuments();
+      const hrEmpCount = await Employee.countDocuments();
+      const totalEmployees = hrEmpCount > 0 ? hrEmpCount : await User.countDocuments({ role: "employee" });
       const today = new Date().toISOString().split("T")[0];
       const presentToday = await Attendance.countDocuments({ date: today, status: "present" });
       const remoteToday = await Attendance.countDocuments({ date: today, status: "remote" });

@@ -66,10 +66,37 @@ export default function Attendance() {
     }
   }, [dateFilter, departmentFilter]);
 
+  const getLocalDeviceTime = () => {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    return `${h}:${m}:${s}`;
+  };
+
+  const getLocalDeviceDate = () => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
   const handleClockIn = async () => {
     try {
-      await api.post('/attendance/clock-in', { status: 'present' });
-      toast.success('Clocked in successfully');
+      const localTime = getLocalDeviceTime();
+      const localDate = getLocalDeviceDate();
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+      const res = await api.post('/attendance/clock-in', {
+        status: 'present',
+        checkIn: localTime,
+        date: localDate,
+        timezone: timezone
+      });
+
+      const msg = res.data?.message || `Clocked in successfully at ${localTime}`;
+      toast.success(msg);
       checkClockStatus();
       fetchAttendance();
     } catch (err) {
@@ -80,8 +107,18 @@ export default function Attendance() {
 
   const handleClockOut = async () => {
     try {
-      await api.post('/attendance/clock-out');
-      toast.success('Clocked out successfully');
+      const localTime = getLocalDeviceTime();
+      const localDate = getLocalDeviceDate();
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+      const res = await api.post('/attendance/clock-out', {
+        checkOut: localTime,
+        date: localDate,
+        timezone: timezone
+      });
+
+      const msg = res.data?.message || `Clocked out successfully at ${localTime}`;
+      toast.success(msg);
       checkClockStatus();
       fetchAttendance();
     } catch (err) {

@@ -69,6 +69,8 @@ const getAttendanceLogs = async (req, res, next) => {
         check_out: log.checkOut,
         status: log.status,
         hours_worked: log.totalHours,
+        createdAt: log.createdAt,
+        updatedAt: log.updatedAt,
       };
     });
 
@@ -93,12 +95,11 @@ const getAttendanceLogs = async (req, res, next) => {
 // Check Clock In Status
 const getClockInStatus = async (req, res, next) => {
   try {
-    const today = new Date().toISOString().split("T")[0];
+    const today = req.query.date || new Date().toISOString().split("T")[0];
     const log = await Attendance.findOne({
       employee: req.user._id,
-      date: today,
       checkOut: null,
-    });
+    }).sort({ createdAt: -1 });
 
     res.json({
       success: true,
@@ -114,6 +115,8 @@ const getClockInStatus = async (req, res, next) => {
               check_out: log.checkOut,
               status: log.status,
               hours_worked: log.totalHours,
+              createdAt: log.createdAt,
+              updatedAt: log.updatedAt,
             }
           : null,
       },

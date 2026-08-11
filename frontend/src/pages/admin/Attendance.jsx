@@ -127,6 +127,34 @@ export default function Attendance() {
     }
   };
 
+  const formatDisplayTime = (rawTime, createdAt) => {
+    if (!rawTime || rawTime === '-') return '-';
+
+    if (createdAt) {
+      try {
+        const d = new Date(createdAt);
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+        }
+      } catch (e) {
+        // fallback
+      }
+    }
+
+    try {
+      const parts = String(rawTime).split(':').map(Number);
+      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        const now = new Date();
+        const utcDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), parts[0], parts[1], parts[2] || 0));
+        return utcDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+      }
+    } catch (e) {
+      // fallback
+    }
+
+    return rawTime;
+  };
+
   const fetchAttendance = async () => {
     try {
       setLoading(true);
@@ -158,8 +186,8 @@ export default function Attendance() {
           name,
           employeeId: empId,
           department: log.department || 'General',
-          clockIn: log.check_in || log.checkIn || '-',
-          clockOut: log.check_out || log.checkOut || '-',
+          clockIn: formatDisplayTime(log.check_in || log.checkIn, log.createdAt),
+          clockOut: formatDisplayTime(log.check_out || log.checkOut, log.checkOut ? log.updatedAt : null),
           hours: hoursWorked ? `${hoursWorked}h` : '-',
           overtime: hoursWorked > 8 ? `${(hoursWorked - 8).toFixed(1)} hrs` : '-',
           status: (log.status || 'present').toLowerCase()
@@ -252,7 +280,7 @@ export default function Attendance() {
             </div>
             <p className="text-xs opacity-90 mt-1">
               {clockedIn
-                ? `Active Session: Clocked in today at ${todayRecord?.check_in || todayRecord?.checkIn || '-'}`
+                ? `Active Session: Clocked in today at ${formatDisplayTime(todayRecord?.check_in || todayRecord?.checkIn, todayRecord?.createdAt)}`
                 : 'Shift starts at 9:00 AM with a 15-minute grace period. Punch in after 9:15 AM is automatically marked as Late Arrival.'}
             </p>
           </div>

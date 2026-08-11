@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { FiSettings, FiUser, FiShield, FiBell, FiDatabase, FiGlobe, FiSave, FiCamera, FiEye, FiEyeOff, FiCreditCard, FiMail, FiTrash2, FiLock, FiX } from 'react-icons/fi';
+import { FiSettings, FiUser, FiShield, FiBell, FiDatabase, FiGlobe, FiSave, FiCamera, FiEye, FiEyeOff, FiCreditCard, FiMail, FiTrash2, FiLock, FiX, FiCheck, FiRefreshCw } from 'react-icons/fi';
 import PageHeader from '../../components/common/PageHeader.jsx';
 import ConfirmModal from '../../components/modals/ConfirmModal.jsx';
 import useAuthStore from '../../stores/useAuthStore.js';
@@ -17,7 +17,78 @@ export default function Settings() {
   const [deletingImage, setDeletingImage] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaveSuccess, setIsSaveSuccess] = useState(false);
+
+  const handleSaveChanges = async (overridePassword = null) => {
+    if (isSaving) return;
+    setIsSaving(true);
+    setIsSaveSuccess(false);
+
+    try {
+      if (activeTab === 'profile') {
+        const isEmailChanged = user?.email && profileEmail.trim().toLowerCase() !== user.email.trim().toLowerCase();
+        const pwdToUse = typeof overridePassword === 'string' ? overridePassword : emailConfirmPassword;
+
+        if (isEmailChanged && !pwdToUse) {
+          setIsEmailModalOpen(true);
+          setIsSaving(false);
+          return;
+        }
+
+        const payload = {
+          name: profileName,
+          email: profileEmail,
+          phone: profilePhone,
+          title: profileTitle,
+          profileImage,
+        };
+
+        if (isEmailChanged) {
+          payload.password = pwdToUse;
+        }
+
+        const response = await api.put('/auth/profile', payload);
+        const updatedData = response.data?.data || response.data;
+        if (updatedData) {
+          const currentUser = useAuthStore.getState().user;
+          const updatedUser = {
+            ...currentUser,
+            ...updatedData,
+          };
+          useAuthStore.getState().setUser(updatedUser);
+          if (updatedData.name) setProfileName(updatedData.name);
+          if (updatedData.email) setProfileEmail(updatedData.email);
+          if (updatedData.phone !== undefined) setProfilePhone(updatedData.phone);
+          if (updatedData.title !== undefined) setProfileTitle(updatedData.title);
+          if (updatedData.profileImage !== undefined) setProfileImage(updatedData.profileImage);
+        }
+
+        toast.success('Profile details updated successfully!');
+        setIsEmailModalOpen(false);
+        setEmailConfirmPassword('');
+        setIsSaveSuccess(true);
+        setTimeout(() => setIsSaveSuccess(false), 2500);
+      } else if (activeTab === 'integrations') {
+        handleSaveIntegrations();
+        setIsSaveSuccess(true);
+        setTimeout(() => setIsSaveSuccess(false), 2500);
+      } else {
+        localStorage.setItem(`settings_${activeTab}`, JSON.stringify({
+          updatedAt: new Date().toISOString(),
+          activeTab
+        }));
+        toast.success(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} settings saved successfully!`);
+        setIsSaveSuccess(true);
+        setTimeout(() => setIsSaveSuccess(false), 2500);
+      }
+    } catch (err) {
+      console.error('Save error:', err);
+      toast.error(err.response?.data?.message || err.message || 'Failed to save changes');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Profile Fields State
   const [profileName, setProfileName] = useState('');
@@ -230,58 +301,6 @@ export default function Settings() {
     }
   }, [searchParams]);
 
-  const handleSaveChanges = async (overridePassword = null) => {
-    try {
-      if (activeTab === 'profile') {
-        const isEmailChanged = user?.email && profileEmail.trim().toLowerCase() !== user.email.trim().toLowerCase();
-        const pwdToUse = typeof overridePassword === 'string' ? overridePassword : emailConfirmPassword;
-
-        if (isEmailChanged && !pwdToUse) {
-          setIsEmailModalOpen(true);
-          return;
-        }
-
-        const payload = {
-          name: profileName,
-          email: profileEmail,
-          phone: profilePhone,
-          title: profileTitle,
-          profileImage,
-        };
-
-        if (isEmailChanged) {
-          payload.password = pwdToUse;
-        }
-
-        const response = await api.put('/auth/profile', payload);
-        const updatedData = response.data?.data || response.data;
-        if (updatedData) {
-          const currentUser = useAuthStore.getState().user;
-          const updatedUser = {
-            ...currentUser,
-            ...updatedData,
-          };
-          useAuthStore.getState().setUser(updatedUser);
-          if (updatedData.name) setProfileName(updatedData.name);
-          if (updatedData.email) setProfileEmail(updatedData.email);
-          if (updatedData.phone !== undefined) setProfilePhone(updatedData.phone);
-          if (updatedData.title !== undefined) setProfileTitle(updatedData.title);
-          if (updatedData.profileImage !== undefined) setProfileImage(updatedData.profileImage);
-        }
-
-        toast.success('Profile details updated successfully!');
-        setIsEmailModalOpen(false);
-        setEmailConfirmPassword('');
-      } else if (activeTab === 'integrations') {
-        handleSaveIntegrations();
-      } else {
-        toast.success('Settings saved successfully');
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Failed to save changes');
-    }
-  };
-
   const handleUpdatePassword = async () => {
     if (!currentPassword || !newPassword || !confirmNewPassword) {
       toast.error('All fields are required');
@@ -313,6 +332,36 @@ export default function Settings() {
     { id: 'preferences', label: 'Preferences', icon: FiGlobe },
   ];
 
+  const SaveButton = ({ className = "" }) => (
+    <button
+      type="button"
+      onClick={() => handleSaveChanges()}
+      disabled={isSaving}
+      className={`erp-focus inline-flex h-11 items-center gap-2 rounded-xl px-5 text-sm font-bold text-white shadow-lg transition-all duration-200 ${
+        isSaveSuccess
+          ? 'bg-emerald-600 shadow-emerald-600/20 hover:bg-emerald-700'
+          : 'bg-primary shadow-blue-600/20 hover:bg-blue-700'
+      } ${isSaving ? 'opacity-70 cursor-wait' : ''} ${className}`}
+    >
+      {isSaving ? (
+        <>
+          <FiRefreshCw className="h-4 w-4 animate-spin" />
+          Saving...
+        </>
+      ) : isSaveSuccess ? (
+        <>
+          <FiCheck className="h-4 w-4 text-white" />
+          Saved!
+        </>
+      ) : (
+        <>
+          <FiSave className="h-4 w-4" />
+          Save Changes
+        </>
+      )}
+    </button>
+  );
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -320,10 +369,7 @@ export default function Settings() {
         title="Settings"
         description="Configure system-wide settings and preferences"
         actions={
-          <button onClick={() => handleSaveChanges()} className="erp-focus inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700">
-            <FiSave className="h-4 w-4" />
-            Save Changes
-          </button>
+          <SaveButton />
         }
       />
 
@@ -465,11 +511,11 @@ export default function Settings() {
                     <span className="text-slate-600 dark:text-slate-300">Status</span>
                     <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Active</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600 dark:text-slate-300">Last Login</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">Today at 10:30 AM</span>
-                  </div>
                 </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-800">
+                <SaveButton />
               </div>
             </div>
           )}

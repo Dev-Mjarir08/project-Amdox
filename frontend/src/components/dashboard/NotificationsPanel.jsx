@@ -13,9 +13,8 @@ export default function NotificationsPanel() {
   const fetchNotifications = async () => {
     try {
       const res = await api.get('/notifications');
-      if (res.data && Array.isArray(res.data)) {
-        setNotifications(res.data.slice(0, 5)); // Show top 5
-      }
+      const list = Array.isArray(res.data) ? res.data : (res.data?.data && Array.isArray(res.data.data) ? res.data.data : []);
+      setNotifications(list.slice(0, 5)); // Show top 5
     } catch (err) {
       console.error("Failed to fetch dashboard notifications:", err);
     } finally {

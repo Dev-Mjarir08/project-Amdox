@@ -63,47 +63,101 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/auth", apiLimiter);
 app.use("/auth", apiLimiter);
 
-// Mount API Routes (Supporting both /api/auth and /auth)
+// Mount API Routes (Supporting both /api/* and /* for absolute compatibility)
 app.use("/api/auth", authRoutes);
 app.use("/auth", authRoutes);
-app.use("/api/admin", adminRoutes);
 
-// Support both /api/employees and /api/hr/employees for absolute alignment with frontend page fetches
+app.use("/api/admin", adminRoutes);
+app.use("/admin", adminRoutes);
+
 app.use("/api/employees", employeeRoutes);
 app.use("/api/hr/employees", employeeRoutes);
+app.use("/employees", employeeRoutes);
+app.use("/hr/employees", employeeRoutes);
 
 app.use("/api/departments", departmentRoutes);
+app.use("/departments", departmentRoutes);
+
 app.use("/api/projects", projectRoutes);
+app.use("/projects", projectRoutes);
+
 app.use("/api/tasks", taskRoutes);
+app.use("/tasks", taskRoutes);
+
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/hr/attendance", attendanceRoutes);
+app.use("/attendance", attendanceRoutes);
+app.use("/hr/attendance", attendanceRoutes);
 
-// Support both /api/leaves and /api/leave-requests
 app.use("/api/leaves", leaveRoutes);
 app.use("/api/leave-requests", leaveRoutes);
 app.use("/api/hr/leave-requests", leaveRoutes);
+app.use("/leaves", leaveRoutes);
+app.use("/leave-requests", leaveRoutes);
+app.use("/hr/leave-requests", leaveRoutes);
 
 app.use("/api/notifications", notificationRoutes);
+app.use("/notifications", notificationRoutes);
+
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/supply-chain/inventory", inventoryRoutes);
+app.use("/inventory", inventoryRoutes);
+app.use("/supply-chain/inventory", inventoryRoutes);
+
 app.use("/api/payroll", payrollRoutes);
+app.use("/payroll", payrollRoutes);
+
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/dashboard", dashboardRoutes);
+
 app.use("/api/audit", auditRoutes);
+app.use("/audit", auditRoutes);
+
 app.use("/api/recruitment", recruitmentRoutes);
+app.use("/recruitment", recruitmentRoutes);
+
 app.use("/api/performance", performanceRoutes);
+app.use("/performance", performanceRoutes);
+
 app.use("/api/training", trainingRoutes);
+app.use("/training", trainingRoutes);
+
 app.use("/api/shifts", shiftRoutes);
+app.use("/shifts", shiftRoutes);
+
 app.use("/api/holidays", holidayRoutes);
+app.use("/holidays", holidayRoutes);
+
 app.use("/api/crm", crmRoutes);
+app.use("/crm", crmRoutes);
+
 app.use("/api/sales", salesRoutes);
 app.use("/api/finance/ar/invoices", salesRoutes);
+app.use("/sales", salesRoutes);
+app.use("/finance/ar/invoices", salesRoutes);
+
 app.use("/api/purchases", purchaseRoutes);
+app.use("/purchases", purchaseRoutes);
+
+app.use("/api/vendors", vendorRoutes);
 app.use("/api/supply-chain/vendors", vendorRoutes);
+app.use("/vendors", vendorRoutes);
+app.use("/supply-chain/vendors", vendorRoutes);
+
 app.use("/api/assets", assetRoutes);
+app.use("/assets", assetRoutes);
+
 app.use("/api/documents", documentRoutes);
+app.use("/documents", documentRoutes);
+
 app.use("/api/finance", financeRoutes);
+app.use("/finance", financeRoutes);
+
 app.use("/api/ai", aiRoutes);
+app.use("/ai", aiRoutes);
+
 app.use("/api/payment", paymentRoutes);
+app.use("/payment", paymentRoutes);
 
 // Root path diagnostic check
 app.get("/health", (req, res) => {

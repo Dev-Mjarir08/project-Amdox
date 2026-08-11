@@ -53,9 +53,8 @@ export default function Navbar({ user: propUser, workspace, onOpenSidebar }) {
     const fetchNotifications = async () => {
       try {
         const res = await api.get("/notifications");
-        if (res.data && Array.isArray(res.data)) {
-          setNotifications(res.data);
-        }
+        const list = Array.isArray(res.data) ? res.data : (res.data?.data && Array.isArray(res.data.data) ? res.data.data : []);
+        setNotifications(list);
       } catch (err) {
         console.error("Failed to fetch notifications:", err);
       }

@@ -145,24 +145,33 @@ export default function Settings() {
     syncProfile();
   }, []);
 
-  const handleImageUpload = async (e) => {
+  const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const formData = new FormData();
-    formData.append('profileImage', file);
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be under 5MB');
+      return;
+    }
 
-    try {
-      toast.info('Uploading profile image...');
-      const response = await api.post('/auth/profile-image', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-      const resData = response.data?.data || response.data;
-      const updatedImg = resData?.profileImage;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64Image = reader.result;
+      setProfileImage(base64Image);
 
-      if (updatedImg !== undefined) {
+      try {
+        toast.info('Uploading profile image...');
+        const formData = new FormData();
+        formData.append('profileImage', file);
+
+        const response = await api.post('/auth/profile-image', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        const resData = response.data?.data || response.data;
+        const updatedImg = resData?.profileImage || base64Image;
+
         setProfileImage(updatedImg);
         const currentUser = useAuthStore.getState().user;
         const updatedUser = {
@@ -171,11 +180,22 @@ export default function Settings() {
         };
         useAuthStore.getState().setUser(updatedUser);
         toast.success('Profile picture updated successfully!');
+      } catch (err) {
+        console.error('Failed to upload profile image via FormData, trying direct update:', err);
+        try {
+          const fallbackRes = await api.put('/auth/profile', { profileImage: base64Image });
+          const resData = fallbackRes.data?.data || fallbackRes.data;
+          const finalImg = resData?.profileImage || base64Image;
+          setProfileImage(finalImg);
+          const currentUser = useAuthStore.getState().user;
+          useAuthStore.getState().setUser({ ...currentUser, profileImage: finalImg });
+          toast.success('Profile picture updated successfully!');
+        } catch (fbErr) {
+          toast.error(err.response?.data?.message || err.message || 'Failed to upload profile image');
+        }
       }
-    } catch (err) {
-      console.error('Failed to upload profile image:', err);
-      toast.error(err.response?.data?.message || err.message || 'Failed to upload profile image');
-    }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleDeleteImage = () => {

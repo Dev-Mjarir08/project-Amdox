@@ -38,6 +38,10 @@ export function getImageUrl(url) {
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
     return url;
   }
-  const backendBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+  let base = import.meta.env.VITE_API_URL;
+  if (!base) {
+    base = import.meta.env.PROD ? '' : 'http://localhost:5000/api';
+  }
+  const backendBase = base.replace(/\/api\/?$/, '');
   return `${backendBase}${url.startsWith('/') ? '' : '/'}${url}`;
 }

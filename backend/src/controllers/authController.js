@@ -938,16 +938,6 @@ const updateProfile = async (req, res, next) => {
 
 const uploadProfileImage = async (req, res, next) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "No image file uploaded.",
-        data: null,
-        errors: ["No file uploaded"],
-        timestamp: new Date().toISOString()
-      });
-    }
-
     const userId = req.user._id;
     const user = await User.findById(userId);
     if (!user) {
@@ -960,19 +950,31 @@ const uploadProfileImage = async (req, res, next) => {
       });
     }
 
-    // Remove previous profile image if stored locally
-    if (user.profileImage && user.profileImage.startsWith("/uploads/profiles/")) {
-      const oldPath = path.join(process.cwd(), user.profileImage);
-      if (fs.existsSync(oldPath)) {
-        try {
-          fs.unlinkSync(oldPath);
-        } catch (e) {
-          console.error("Failed to delete old profile image:", e);
+    let imageRelativeUrl = "";
+
+    if (req.body && req.body.profileImage && req.body.profileImage.startsWith("data:image")) {
+      imageRelativeUrl = req.body.profileImage;
+    } else if (req.file) {
+      try {
+        const fileData = fs.readFileSync(req.file.path);
+        const mimeType = req.file.mimetype || "image/png";
+        imageRelativeUrl = `data:${mimeType};base64,${fileData.toString("base64")}`;
+        if (fs.existsSync(req.file.path)) {
+          try { fs.unlinkSync(req.file.path); } catch (e) {}
         }
+      } catch (e) {
+        imageRelativeUrl = `/uploads/profiles/${req.file.filename}`;
       }
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "No image file provided.",
+        data: null,
+        errors: ["No file uploaded"],
+        timestamp: new Date().toISOString()
+      });
     }
 
-    const imageRelativeUrl = `/uploads/profiles/${req.file.filename}`;
     user.profileImage = imageRelativeUrl;
     await user.save();
 

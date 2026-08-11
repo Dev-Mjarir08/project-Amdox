@@ -265,8 +265,8 @@ export default function Navbar({ user: propUser, workspace, onOpenSidebar }) {
               className="erp-focus flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 shadow-2xs transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900"
             >
               <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-primary text-[10px] font-black text-white overflow-hidden">
-                {authUser?.profileImage ? (
-                  <img src={getImageUrl(authUser.profileImage)} alt="Avatar" className="h-full w-full object-cover" />
+                {(authUser?.profileImage || user?.profileImage) ? (
+                  <img src={getImageUrl(authUser?.profileImage || user?.profileImage)} alt="Avatar" className="h-full w-full object-cover" />
                 ) : (
                   user.initials
                 )}

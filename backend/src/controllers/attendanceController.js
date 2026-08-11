@@ -235,9 +235,52 @@ const clockOut = async (req, res, next) => {
   }
 };
 
+// Mark Manual Attendance (HR / Admin)
+const markAttendance = async (req, res, next) => {
+  try {
+    const { userId, date, status, checkIn, checkOut } = req.body;
+    const targetUser = userId || req.user._id;
+    const recordDate = date || new Date().toISOString().split("T")[0];
+    const statusVal = status || "present";
+    const inTime = checkIn || "09:00:00";
+    const outTime = checkOut || "17:00:00";
+
+    let log = await Attendance.findOne({ employee: targetUser, date: recordDate });
+    if (log) {
+      log.status = statusVal;
+      log.checkIn = inTime;
+      log.checkOut = outTime;
+      log.totalHours = statusVal === 'absent' ? 0 : 8.0;
+      await log.save();
+    } else {
+      log = new Attendance({
+        employee: targetUser,
+        date: recordDate,
+        checkIn: inTime,
+        checkOut: outTime,
+        status: statusVal,
+        totalHours: statusVal === 'absent' ? 0 : 8.0
+      });
+      await log.save();
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Attendance marked successfully.",
+      data: log,
+      errors: [],
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export {
   getAttendanceLogs,
   getClockInStatus,
   clockIn,
   clockOut,
+  markAttendance,
 };
+
